@@ -157,48 +157,6 @@ export const login = async (req, res) => {
   });
 };
 
-/**
- * Verifies the authenticity of a user's access token.
- *
- * This endpoint checks whether the provided access token is valid by
- * calling Supabase Auth's getUser function. If the token is valid,
- * the corresponding authenticated user's information is returned.
- *
- * Endpoint:
- *   GET /auth/verify
- *
- * Headers:
- *   Authorization: Bearer <access_token>
- *
- * Behavior:
- *   - Extracts the access token from the Authorization header.
- *   - Calls Supabase Auth to retrieve the user associated with the token.
- *   - Returns the user's information if the token is valid.
- *
- * Returns:
- *   200 OK
- *   <user_object>
- *
- * Errors:
- *   401 Unauthorized - Invalid token
- *
- * @param {Request} req - Express request object containing the Authorization header.
- * @param {Response} res - Express response object used to return the authenticated user data.
- */
-export const verifyToken = async (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
-
-  const { data, error } = await supabase.auth.getUser(token);
-
-  if (error) {
-    return res.status(401).json({ 
-        code: "INVALID_TOKEN",
-        message: "Invalid token" });
-  }
-
-  res.json(data.user);
-};
-
 
 /**
  * Logs out the currently authenticated user.
@@ -251,7 +209,8 @@ export const logout = async (req, res) => {
 
   
   /**
- * Get information about the authenticated user.
+ * Gets only the current user's profile information based on 
+ * the provided JWT access token.
  *
  * This endpoint verifies the JWT access token provided in the
  * Authorization header and retrieves the corresponding user's
@@ -261,7 +220,7 @@ export const logout = async (req, res) => {
  * validate the identity and user role of the requesting user.
  *
  * Endpoint:
- *   GET /auth/getUserInfo
+ *   GET /user/getUserInfo
  *
  * Headers:
  *   Authorization: Bearer <access_token>
@@ -293,9 +252,9 @@ export const logout = async (req, res) => {
       });
     }
   
-    const { data: authUser, error } = await supabase.auth.getUser(token);
+    const { data: authUser, error: token_error } = await supabase.auth.getUser(token);
   
-    if (error) {
+    if (token_error) {
       return res.status(401).json({
         code: "INVALID_TOKEN",
         message: "Invalid token"
@@ -304,14 +263,14 @@ export const logout = async (req, res) => {
   
     const userId = authUser.user.id;
   
-    const { data: profile } = await supabase
+    const { data: profile, error: query_error } = await supabase
       .schema("userservice")
       .from("profiles")
       .select("id, username, user_role")
       .eq("id", userId)
       .single();
     
-    if (error) {
+    if (query_error) {
     return res.status(500).json({
         code: "PROFILE_NOT_FOUND",
         message: "Error retrieving profile"
@@ -344,7 +303,7 @@ export const logout = async (req, res) => {
  * database.
  *
  * Endpoint:
- *   PUT /user/username
+ *   PATCH /user/username
  *
  * Headers:
  *   Authorization: Bearer <access_token>
@@ -458,7 +417,7 @@ export const logout = async (req, res) => {
  * requester’s role before updating the target user's role in the database.
  *
  * Endpoint:
- *   PUT /user/role/:userId
+ *   PATCH /admin/role/:userId
  *
  * Headers:
  *   Authorization: Bearer <access_token>
@@ -572,3 +531,90 @@ export const logout = async (req, res) => {
     });
   
   };
+
+
+/**
+ * Retrieve ALL users info (admin only).
+ *
+ * Endpoint:
+ *   GET /admin/allUsers
+ *
+ * Headers:
+ *   Authorization: Bearer <access_token>
+ *
+ * Returns:
+ *   200 OK
+ *   [
+ *     {
+ *       id: string,
+ *       username: string,
+ *       email: string,
+ *       user_role: string
+ *     }...
+ *   ]
+ *
+ * Errors:
+ *   401 Unauthorized
+ *   403 Forbidden
+ */
+export const getAllUsers = async (req, res) => {
+
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      code: "UNAUTHORIZED",
+      message: "Unauthorized"
+    });
+  }
+
+  // verify token
+  const { data: authUser, error: authError } = await supabase.auth.getUser(token);
+
+  if (authError) {
+    return res.status(401).json({
+      code: "INVALID_TOKEN",
+      message: "Invalid token"
+    });
+  }
+
+  const requesterId = authUser.user.id;
+
+  // check requester role
+  const { data: requesterProfile } = await supabase
+    .schema("userservice")
+    .from("profiles")
+    .select("user_role")
+    .eq("id", requesterId)
+    .single();
+
+  if (requesterProfile.user_role !== "admin") {
+    return res.status(403).json({
+      code: "UNATHORIZED",
+      message: "Admin privileges required"
+    });
+  }
+
+  // get all users
+  const { data: users, error } = await supabase
+    .schema("userservice")
+    .from("profiles")
+    .select("id, username, user_role");
+
+  if (error) {
+    console.log(error)
+    return res.status(500).json({
+      code: "FETCH_FAILED",
+      message: "Failed to retrieve users"
+    });
+  }
+
+  // convert user_role to boolean isAdmin
+  const formattedUsers = users.map(user => ({
+    id: user.id,
+    username: user.username,
+    isAdmin: user.user_role === "admin"
+  }));
+
+  res.json(formattedUsers);
+};
