@@ -71,7 +71,34 @@ export default function SignupPage() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }, [email]);
 
-  const usernameLengthValid = username.trim().length >= 3;
+  function getUsernameError(name: string): string | null {
+    if (!name) return "Please enter a username.";
+
+    if (name.length < 3) {
+      return "Username must be at least 3 characters.";
+    }
+
+    if (name.length > 20) {
+      return "Username must be at most 20 characters.";
+    }
+
+    if (/\s/.test(name)) {
+      return "Username cannot contain spaces.";
+    }
+
+    if (name !== name.toLowerCase()) {
+      return "Only lowercase letters allowed.";
+    }
+
+    if (!/^[a-z0-9_-]+$/.test(name)) {
+      return "Only letters, numbers, '-' and '_' allowed.";
+    }
+
+    return null;
+  }
+
+  const usernameError = getUsernameError(username);
+  const usernameFormatValid = usernameError === null;
 
   const passwordChecks = useMemo(
     () => ({
@@ -98,7 +125,7 @@ export default function SignupPage() {
     emailFormatValid &&
     emailAvailable === true &&
     codeVerified &&
-    usernameLengthValid &&
+    usernameFormatValid &&
     usernameAvailable === true &&
     passwordValid &&
     passwordsMatch;
@@ -143,7 +170,7 @@ export default function SignupPage() {
     async function checkUsername() {
       setSubmitError("");
 
-      if (!codeVerified || !usernameLengthValid) {
+      if (!codeVerified || !usernameFormatValid) {
         setUsernameAvailable(null);
         return;
       }
@@ -162,7 +189,7 @@ export default function SignupPage() {
     return () => {
       cancelled = true;
     };
-  }, [username, codeVerified, usernameLengthValid]);
+  }, [username, codeVerified, usernameFormatValid]);
 
   // ---------------- ACTIONS ----------------
   async function handleGetCode() {
@@ -330,16 +357,17 @@ export default function SignupPage() {
             />
             <div className="mt-1 min-h-5 text-sm">
               {!codeVerified && null}
-              {codeVerified && username.length > 0 && !usernameLengthValid && (
-                <span className="text-red-500">
-                  ✗ Username must be at least 3 characters
-                </span>
+
+              {codeVerified && usernameError && (
+                <span className="text-red-500">✗ {usernameError}</span>
               )}
+
               {codeVerified &&
-                usernameLengthValid &&
+                usernameFormatValid &&
                 renderStatus(usernameAvailable, usernameChecking)}
+
               {codeVerified &&
-                usernameLengthValid &&
+                usernameFormatValid &&
                 usernameAvailable === true && (
                   <span className="ml-2 text-green-600">
                     Username is available
