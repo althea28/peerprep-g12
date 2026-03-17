@@ -1,11 +1,11 @@
-export type SessionStatus = 'active' | 'inactive' ;
+export type SessionStatus = 'active' | 'inactive';
 
 export interface Session {
   session_id: string;
   user1_id: string;
   user2_id: string;
   question_id: string;
-  programming_language: string;
+  language: string;
   difficulty: string;
   topic: string;
   start_timestamp: Date;
@@ -18,7 +18,7 @@ export interface CreateSessionDTO {
   user1_id: string;
   user2_id: string;
   question_id: string;
-  programming_language: string;
+  language: string;
   difficulty: string;
   topic: string;
 }
