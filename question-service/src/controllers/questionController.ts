@@ -66,3 +66,70 @@ export async function getQuestionByNumber(req: Request, res: Response) {
 
     return res.status(200).json(data)
 }
+
+/**
+ * Create a new question in the repository.
+ * All fields are required. Topics must already exist in the topics table. 
+ * 
+ * @route POST /questions
+ * @access Admin only 
+ * @body {string} title - Question description
+ * @body {string} difficulty - easy/medium/hard
+ * @body {string[]} topics - Array of topic names e.g. ["Arrays", "Hash Tables"]
+ * @returns {Object} the newly created question object 
+ */
+export async function createQuestion(req: Request, res: Response) {
+    const { title, description, difficulty, topics } = req.body;
+
+    //F8.1.1 -- Validate all required fields are present 
+    if (!title || !description || !difficulty || !topics) {
+        return res.status(400).json({error: 'The question is missing required fields'}); 
+    }
+
+    //jic for now, might not need this later when UI directly allows selection from a list
+    if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+        return res.status(400).json({error: 'Difficulty must be: easy, medium or hard'});
+    }
+
+    //same as difficulty
+    const { data: existingTopics, error: topicError } = await supabase
+        .schema('questionservice')
+        .from('topics')
+        .select('name')
+        .in('name', topics);
+    
+    if (topicError) return res.status(500).json({ error: topicError.message });
+
+    //if all topics exist, counts will match, if any invalid topics, counts differ
+    if (existingTopics.length !== topics.length) {
+        //foundNames are topic names that exist
+        const foundNames = existingTopics.map((t: any) => t.name);
+        const invalid = topics.filter((t: string) => !foundNames.includes(t));
+        return res.status(400).json({ error: `These topics do not exist: ${invalid.join(', ')}`});
+    }
+
+    //Inserting question
+    const { data: newQuestion, error: insertError} = await supabase
+        .schema('questionservice')
+        .from('questions')
+        .insert({ title, description, difficulty, availability_status: 'available'})
+        .select()
+        .single();
+    
+    if (insertError) return res.status(500).json({ error: insertError.message});
+
+    //Link topics in question_topics table 
+    const topicLinks = topics.map((topic: string) => ({
+        question_id: newQuestion.id,
+        topic
+    }));
+
+    const { error: linkError } = await supabase
+        .schema('questionservice')
+        .from('question_topics')
+        .insert(topicLinks);
+    
+    if (linkError) return res.status(500).json({ error: linkError.message });
+
+    return res.status(201).json(newQuestion);
+}
