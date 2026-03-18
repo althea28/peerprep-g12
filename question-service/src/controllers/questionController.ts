@@ -252,7 +252,7 @@ export async function editQuestion(req: Request, res: Response) {
  * Archives a question, removing it from active use. 
  * Only available questions can be archived.
  * 
- * @route PATCH /questions.:questionNumber/archive
+ * @route PATCH /questions/:questionNumber/archive
  * @access Admin only 
  * @param {string} questionNumber - The question number to archive 
  * @returns {Object} The updated question object 
