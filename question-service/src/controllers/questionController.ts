@@ -321,3 +321,43 @@ export async function restoreQuestion(req: Request, res: Response) {
 
     return res.status(200).json(data);
 }
+
+/**
+ * Permanently deletes an archived question from the database. 
+ * Only archived questions can be deleted. 
+ * Linked question_topics rows are automatically removed via CASCADE.
+ * 
+ * @route DELETE /questions/:questionNumber
+ * @access Admin only 
+ * @param {string} questionNumber - The question number to delete
+ * @returns {204} No content on success 
+ */
+export async function deleteQuestion(req: Request, res: Response) {
+    const { questionNumber } = req.params;
+
+    //Check that the question exists and is archived
+    const { data: current, error: fetchError } = await supabase
+        .schema('questionservice')
+        .from('questions')
+        .select('id, availability_status')
+        .eq('question_number', questionNumber)
+        .single();
+
+    if (fetchError || !current) {
+        return res.status(404).json({ error: 'Question not found'});
+    }
+
+    if (current.availability_status !== 'archived') {
+        return res.status(400).json({ error: 'Question is not archived. Only archived questions can be permanently deleted.'});
+    }
+
+    const { error } = await supabase
+        .schema('questionservice')
+        .from('questions')
+        .delete()
+        .eq('id', current.id);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.status(204).send();
+}
