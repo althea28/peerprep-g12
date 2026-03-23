@@ -12,7 +12,7 @@ export const createSession = async (
     const dto: CreateSessionDTO = req.body;
 
     // validate required fields
-    const required = ['user1_id', 'user2_id', 'question_id', 'language', 'difficulty', 'topic'];
+    const required = ['user1_id', 'user2_id', 'language', 'difficulty', 'topic'];
     const missing = required.filter((field) => !dto[field as keyof CreateSessionDTO]);
     if (missing.length > 0) {
       res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
@@ -26,7 +26,7 @@ export const createSession = async (
   }
 };
 
-// called (by frontend?) to get a specific session
+// called (by frontend) to get a specific session
 export const getSession = async (
   req: AuthenticatedRequest,
   res: Response

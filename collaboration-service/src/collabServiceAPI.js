@@ -1,9 +1,62 @@
 ```
-Base URL: http://localhost:3003
-
-POST   /sessions                 Create collaboration room (Matching Service)
-GET    /sessions/active          Get caller's active session [auth]
-GET    /sessions/:sessionId      Get session by ID [auth, must be participant]
-PATCH  /sessions/:sessionId/end  End a session [auth, must be participant]
-
+Base URL: http://localhost:3003  
 [auth] = requires Authorization: Bearer <token> header
+
+
+POST   /sessions  
+    Create collaboration room (called by Matching Service)
+
+    Request Body:
+    {
+        user1_id: string (UUID),
+        user2_id: string (UUID),
+        language: string,
+        difficulty: string,
+        topic: string
+    }
+
+
+GET    /sessions/:sessionId  
+    Get session by ID [auth, must be participant]
+
+
+GET    /sessions/active  
+    Get caller's active session [auth]
+
+
+PATCH  /sessions/:sessionId/end  
+    End a session [auth, must be participant]
+
+
+
+Response Format (Create / Get / Get Active):
+    {
+        session_id: string (UUID),
+        user1_id: string,
+        user2_id: string,
+        language: string,
+        difficulty: string,
+        topic: string,
+        start_timestamp: string (ISO datetime),
+        status: "active",
+        question_id: string (UUID),
+        end_timestamp: null,
+        code_content: string
+    }
+
+
+Response Format (End Session):
+    {
+        session_id: string (UUID),
+        user1_id: string,
+        user2_id: string,
+        language: string,
+        difficulty: string,
+        topic: string,
+        start_timestamp: string (ISO datetime),
+        status: "inactive",
+        question_id: string (UUID),
+        end_timestamp: string (ISO datetime),
+        code_content: string
+    }
+```
