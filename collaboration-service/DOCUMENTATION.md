@@ -123,7 +123,7 @@ End a collaboration session (F11.5).
 |--------|-----|---------|
 | `GET` | `USER_SERVICE_URL/user/getUserInfo` | Verify user token |
 | `POST` | `QUESTION_SERVICE_URL/internal/questions/fetch` | Fetch question on session creation |
-| `POST` | `MATCHING_SERVICE_URL/internal/early-termination` | Notify of early termination (F11.7) ⚠️ endpoint TBC |
+| `POST` | `MATCHING_SERVICE_URL/internal/early-termination` | Notify of early termination (F11.7) ** endpoint TBC |
 
 ### Calls made to this service
 | Caller | Method | Endpoint | Purpose |
@@ -132,32 +132,6 @@ End a collaboration session (F11.5).
 | Frontend | `GET` | `/sessions/active` | Check for active session on login |
 | Frontend | `GET` | `/sessions/:sessionId` | Get session details |
 | Frontend | `PATCH` | `/sessions/:sessionId/end` | End session via HTTP fallback |
-
----
-
-## Supabase Setup
-Schema: `collaborationservice`
-
-Run in SQL Editor:
-```sql
-GRANT USAGE ON SCHEMA collaborationservice TO service_role;
-GRANT ALL ON ALL TABLES IN SCHEMA collaborationservice TO service_role;
-```
-
-Table: `collaboration_rooms`
-| Column | Type | Description |
-|--------|------|-------------|
-| session_id | uuid | Primary key |
-| user1_id | uuid | First user |
-| user2_id | uuid | Second user |
-| question_id | uuid | Assigned question |
-| language | text | Programming language |
-| difficulty | text | Question difficulty |
-| topic | text | Question topic |
-| start_timestamp | timestamptz | Session start |
-| end_timestamp | timestamptz | Session end |
-| status | enum | `active` or `inactive` |
-| code_content | text | Latest saved code |
 
 ---
 
