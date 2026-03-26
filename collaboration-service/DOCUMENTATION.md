@@ -122,6 +122,8 @@ End a collaboration session (F11.5).
 | `POST` | `QUESTION_SERVICE_URL/internal/questions/fetch` | Fetch question on session creation |
 | `POST` | `MATCHING_SERVICE_URL/internal/early-termination` | Notify of early termination (F11.7) ** endpoint TBC |
 
+- Failed Matching Service notifications are stored in failed_notifications table and retried every 2 minutes. Entries older than 1 hour are automatically deleted as they fall outside the rolling window.
+
 ### Calls made to this service
 | Caller | Method | Endpoint | Purpose |
 |--------|--------|----------|---------|
