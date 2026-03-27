@@ -60,6 +60,7 @@ export const signup = async (req, res) => {
       email,
       password,
       options: {
+        emailRedirectTo: "http://localhost:3000/verified",
         data: {
           username: username
         }
