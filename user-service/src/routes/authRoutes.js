@@ -7,7 +7,9 @@ import {
   updateUsername,
   checkUniqueUsername,
   updateUserRole,
-  getAllUsers
+  getAllUsers,
+  deleteOwnAccount
+
 } from "../controllers/authController.js";
 
 import { requireAuth, requireAdmin } from "../middleware/userMiddleware.js";
@@ -23,6 +25,7 @@ router.post("/auth/logout", requireAuth, logout);
 router.get("/user/getUserInfo", requireAuth, getUserInfo);
 router.patch("/user/username", requireAuth, updateUsername);
 router.get("/user/checkUniqueUsername", checkUniqueUsername);
+router.delete("/user/deleteAccount", requireAuth, deleteOwnAccount);
 
 // admin routes
 router.patch("/admin/role/:userId", requireAuth, requireAdmin, updateUserRole);

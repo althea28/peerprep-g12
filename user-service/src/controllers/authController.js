@@ -1,4 +1,4 @@
-import { supabase } from "../services/supabaseClient.js";
+import { supabase, supabaseAdmin } from "../services/supabaseClient.js";
 
 /**
  * Registers a new user account.
@@ -166,21 +166,20 @@ export const login = async (req, res) => {
  * @param {Response} res - Express response object used to return the logout result.
  */
 export const logout = async (req, res) => {
+    const supabase = req.supabase;
 
-    const token = req.headers.authorization?.split(" ")[1];
-  
-    const { error } = await supabase.auth.signOut(token);
-  
+    const { error } = await supabase.auth.signOut();
+
     if (error) {
       return res.status(400).json({
         code: "LOGOUT_FAILED",
         message: "Logout failed"
       });
     }
-  
+
     return res.status(200).json({
-        code: "SUCCESS",
-        message: "Logged out successfully"
+      code: "SUCCESS",
+      message: "Logged out successfully"
     });
   };
 
@@ -219,54 +218,36 @@ export const logout = async (req, res) => {
  * @param {Response} res - Express response object
  */
   export const getUserInfo = async (req, res) => {
+    const supabase = req.supabase;
+    const userId = req.userId;
 
-    const token = req.headers.authorization?.split(" ")[1];
-  
-    if (!token) {
-      return res.status(401).json({
-        code: "UNAUTHORIZED",
-        message: "Unauthorized"
-      });
-    }
-  
-    const { data: authUser, error: token_error } = await supabase.auth.getUser(token);
-  
-    if (token_error) {
-      return res.status(401).json({
-        code: "INVALID_TOKEN",
-        message: "Invalid token"
-      });
-    }
-  
-    const userId = authUser.user.id;
-  
-    const { data: profile, error: query_error } = await supabase
+    const { data: profile, error } = await supabase
       .schema("userservice")
       .from("profiles")
       .select("id, username, user_role")
       .eq("id", userId)
       .single();
-    
-    if (query_error) {
-    return res.status(500).json({
+
+    if (error) {
+      return res.status(500).json({
         code: "PROFILE_NOT_FOUND",
         message: "Error retrieving profile"
-    });
+      });
     }
-    
+
     if (!profile) {
-    return res.status(404).json({
+      return res.status(404).json({
         code: "PROFILE_NOT_FOUND",
         message: "Profile not found"
-    });
+      });
     }
+
     res.json({
       id: userId,
       username: profile.username,
-      email: authUser.user.email,
-      isAdmin: profile.user_role == "admin"
+      email: req.userEmail,
+      isAdmin: profile.user_role === "admin"
     });
-  
   };
 
 
@@ -314,18 +295,10 @@ export const logout = async (req, res) => {
  * @param {Request} req - Express request object containing the Authorization header and new username.
  * @param {Response} res - Express response object used to return the update result.
  */
-  export const updateUsername = async (req, res) => {
-
-    const token = req.headers.authorization?.split(" ")[1];
+export const updateUsername = async (req, res) => {
+    const supabase = req.supabase;
     const { username } = req.body;
-  
-    if (!token) {
-      return res.status(401).json({
-        code: "UNAUTHORIZED",
-        message: "Unauthorized"
-      });
-    }
-  
+
     if (!username) {
       return res.status(400).json({
         code: "EMPTY_FIELD",
@@ -333,34 +306,22 @@ export const logout = async (req, res) => {
       });
     }
 
-    // verify token
-    const { data: authUser, error: authError } = await supabase.auth.getUser(token);
-  
-    if (authError) {
-      return res.status(401).json({
-        code: "INVALID_TOKEN",
-        message: "Invalid token"
-      });
-    }
-  
-    const userId = authUser.user.id;
-  
-    // check for duplicate username
+    const userId = req.userId;
+
     const { data: existing } = await supabase
       .schema("userservice")
       .from("profiles")
       .select("id")
       .eq("username", username)
       .maybeSingle();
-  
+
     if (existing) {
       return res.status(400).json({
         code: "DUPLICATE_FIELD",
         message: "Username already taken"
       });
     }
-  
-    // update username
+
     const { data, error } = await supabase
       .schema("userservice")
       .from("profiles")
@@ -368,22 +329,21 @@ export const logout = async (req, res) => {
       .eq("id", userId)
       .select()
       .single();
-  
+
     if (error) {
-      console.error("Username update error:", error);
       return res.status(500).json({
         code: "UPDATE_FAILED",
         message: "Failed to update username"
       });
     }
-  
+
     res.json({
-        code: "SUCCESS",
-        message: "Username updated successfully",
-        username: data.username
+      code: "SUCCESS",
+      message: "Username updated successfully",
+      username: data.username
     });
-  
   };
+
 
 /**
  * Promotes a user to the Administrator role.
@@ -426,87 +386,69 @@ export const logout = async (req, res) => {
  * @param {Request} req - Express request object containing the Authorization header and userId parameter.
  * @param {Response} res - Express response object used to return the role update result.
  */
-  export const updateUserRole = async (req, res) => {
-
-    const token = req.headers.authorization?.split(" ")[1];
+export const updateUserRole = async (req, res) => {
     const { userId } = req.params;
-  
-    if (!token) {
-      return res.status(401).json({
-        code: "UNAUTHORIZED",
-        message: "Unauthorized"
-      });
-    }
-  
-    // Verify token
-    const { data: authUser, error: authError } = await supabase.auth.getUser(token);
-  
-    if (authError) {
-      return res.status(401).json({
-        code: "INVALID_TOKEN",
-        message: "Invalid token"
-      });
-    }
-  
-    const requesterId = authUser.user.id;
-  
-    // Get requester role
-    const { data: requesterProfile } = await supabase
+    const requesterId = req.userId;
+
+    const { data: requesterProfile, error: requesterError } = await supabaseAdmin
       .schema("userservice")
       .from("profiles")
       .select("user_role")
       .eq("id", requesterId)
       .single();
-  
+
+    if (requesterError || !requesterProfile) {
+      return res.status(500).json({
+        code: "USER_NOT_FOUND",
+        message: "Failed to verify admin"
+      });
+    }
+
     if (requesterProfile.user_role !== "admin") {
       return res.status(403).json({
         code: "UNAUTHORIZED",
         message: "Only administrators can change user roles"
       });
     }
-  
-    // Get target user role
-    const { data: targetProfile } = await supabase
+
+    const { data: targetProfile, error: targetError } = await supabaseAdmin
       .schema("userservice")
       .from("profiles")
       .select("user_role")
       .eq("id", userId)
       .single();
-  
-    if (!targetProfile) {
+
+    if (targetError || !targetProfile) {
       return res.status(404).json({
         code: "USER_NOT_FOUND",
         message: "User not found"
       });
     }
-  
-    // Prevent demotion
+
     if (targetProfile.user_role === "admin") {
       return res.status(400).json({
         code: "UPDATE_FAILED",
         message: "User is already an Administrator"
       });
     }
-  
-    // Promote user
-    const { error } = await supabase
+
+    const { error } = await supabaseAdmin
       .schema("userservice")
       .from("profiles")
       .update({ user_role: "admin" })
       .eq("id", userId);
-  
+
     if (error) {
       return res.status(500).json({
         code: "UPDATE_FAILED",
         message: "Failed to update user role"
       });
     }
-  
+
     res.json({
-        code: "SUCCESS",
-        message: "User promoted to Administrator"
+      code: "SUCCESS",
+      message: "User promoted to Administrator"
     });
-  
   };
 
 
@@ -534,51 +476,37 @@ export const logout = async (req, res) => {
  *   403 Forbidden
  */
 export const getAllUsers = async (req, res) => {
-
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({
-      code: "UNAUTHORIZED",
-      message: "Unauthorized"
-    });
-  }
-
-  // verify token
-  const { data: authUser, error: authError } = await supabase.auth.getUser(token);
-
-  if (authError) {
-    return res.status(401).json({
-      code: "INVALID_TOKEN",
-      message: "Invalid token"
-    });
-  }
-
-  const requesterId = authUser.user.id;
+  const requesterId = req.userId;
 
   // check requester role
-  const { data: requesterProfile } = await supabase
+  const { data: requesterProfile, error: requesterError } = await supabaseAdmin
     .schema("userservice")
     .from("profiles")
     .select("user_role")
     .eq("id", requesterId)
     .single();
 
+  if (requesterError || !requesterProfile) {
+    return res.status(500).json({
+      code: "USER_NOT_FOUND",
+      message: "Failed to verify admin"
+    });
+  }
+
   if (requesterProfile.user_role !== "admin") {
     return res.status(403).json({
-      code: "UNATHORIZED",
+      code: "UNAUTHORIZED",
       message: "Admin privileges required"
     });
   }
 
   // get all users
-  const { data: users, error } = await supabase
+  const { data: users, error } = await supabaseAdmin
     .schema("userservice")
     .from("profiles")
     .select("id, username, user_role");
 
   if (error) {
-    console.log(error)
     return res.status(500).json({
       code: "FETCH_FAILED",
       message: "Failed to retrieve users"
@@ -616,38 +544,132 @@ export const getAllUsers = async (req, res) => {
  *   500 Internal Server Error - Failed to query database
  */
 export const checkUniqueUsername = async (req, res) => {
-  const { username } = req.query;
+    const { username } = req.query;
 
-  if (!username) {
-    return res.status(400).json({
-      code: "EMPTY_FIELD",
-      message: "Username is required"
+    if (!username) {
+      return res.status(400).json({
+        code: "EMPTY_FIELD",
+        message: "Username is required"
+      });
+    }
+
+    const { data, error } = await supabase
+      .schema("userservice")
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({
+        code: "QUERY_FAILED",
+        message: "Error checking username"
+      });
+    }
+
+    if (data) {
+      return res.status(200).json({
+        available: false
+      });
+    }
+
+    return res.status(200).json({
+      available: true
     });
-  }
+  };
 
-  const { data, error } = await supabase
+/**
+ * Deletes the currently authenticated user's account.
+ * Allows a user to delete their own account only.
+ * If the user is an administrator,  system checks that there is
+ * at least one other admin remaining before allowing deletion.
+ *
+ * Endpoint:
+ *   DELETE /user/deleteAccount
+ *
+ * Headers:
+ *   Authorization: Bearer <access_token>
+ *
+ * Returns:
+ *   200 OK
+ *   {
+ *     code: "SUCCESS",
+ *     message: "Account deleted successfully"
+ *   }
+ *
+ * Errors:
+ *   401 Unauthorized - Missing or invalid authentication token
+ *   400 Bad Request - Cannot delete the last remaining admin
+ *   500 Internal Server Error - Failed to delete user profile or auth user
+ */
+  export const deleteOwnAccount = async (req, res) => {
+  const db = supabaseAdmin;
+  const userId = req.userId;
+
+  // Get user role
+  const { data: userProfile, error: userError } = await db
     .schema("userservice")
     .from("profiles")
-    .select("id")
-    .eq("username", username)
-    .maybeSingle();
+    .select("user_role")
+    .eq("id", userId)
+    .single();
 
-  if (error) {
+  if (userError || !userProfile) {
     return res.status(500).json({
-      code: "QUERY_FAILED",
-      message: "Error checking username"
+      code: "PROFILE_FETCH_FAILED",
+      message: "Failed to retrieve user profile"
     });
   }
 
-  // if data exists --> username taken
-  if (data) {
-    return res.status(200).json({
-      available: false
+  // If admin, check if last admin
+  if (userProfile.user_role === "admin") {
+    const { count, error: countError } = await db
+      .schema("userservice")
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("user_role", "admin");
+
+    if (countError) {
+      return res.status(500).json({
+        code: "COUNT_FAILED",
+        message: "Failed to check admin count"
+      });
+    }
+
+    if (count <= 1) {
+      return res.status(400).json({
+        code: "LAST_ADMIN",
+        message: "Cannot delete the last remaining admin"
+      });
+    }
+  }
+
+  // Delete from profiles
+  const { error: deleteProfileError } = await db
+    .schema("userservice")
+    .from("profiles")
+    .delete()
+    .eq("id", userId);
+    
+  if (deleteProfileError) {
+    return res.status(500).json({
+      code: "DELETE_FAILED",
+      message: "Failed to delete user profile"
     });
   }
 
-  // if no data --> username available
-  return res.status(200).json({
-    available: true
+  // Delete from Supabase Auth
+  const { error: deleteAuthError } = await db.auth.admin.deleteUser(userId);
+
+  if (deleteAuthError) {
+    return res.status(500).json({
+      code: "DELETE_FAILED",
+      message: "Failed to delete auth user"
+    });
+  }
+
+  res.json({
+    code: "SUCCESS",
+    message: "Account deleted successfully"
   });
 };

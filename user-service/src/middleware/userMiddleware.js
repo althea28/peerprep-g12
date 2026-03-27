@@ -1,4 +1,5 @@
 import { supabase } from "../services/supabaseClient.js";
+import { createClient } from "@supabase/supabase-js";
 
 
 export const requireAuth = async (req, res, next) => {
@@ -12,8 +13,19 @@ export const requireAuth = async (req, res, next) => {
     });
   }
 
-  // verify token with Supabase
-  const { data, error } = await supabase.auth.getUser(token);
+  const supabaseWithAuth = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    }
+  );
+
+  const { data, error } = await supabaseWithAuth.auth.getUser();
 
   if (error || !data?.user) {
     return res.status(401).json({
@@ -25,12 +37,14 @@ export const requireAuth = async (req, res, next) => {
   // attach useful info to request
   req.userId = data.user.id;
   req.userEmail = data.user.email;
+  req.supabase = supabaseWithAuth;
 
   next();
 };
 
-
 export const requireAdmin = async (req, res, next) => {
+
+  const supabase = req.supabase;
 
   const { data: profile, error } = await supabase
     .schema("userservice")
@@ -40,7 +54,6 @@ export const requireAdmin = async (req, res, next) => {
     .single();
 
   if (error || !profile) {
-    console.log("Error fetching user profile:", error);
     return res.status(404).json({
       code: "PROFILE_NOT_FOUND",
       message: "User profile not found"
@@ -49,7 +62,7 @@ export const requireAdmin = async (req, res, next) => {
 
   if (profile.user_role !== "admin") {
     return res.status(403).json({
-      code: "UNATHORIZED",
+      code: "UNAUTHORIZED",
       message: "Admin privileges required"
     });
   }
