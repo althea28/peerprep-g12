@@ -25,8 +25,8 @@ const io = new Server(httpServer, {
 });
 
 const redisService = new RedisService();
-const collaborationServiceBaseUrl = process.env.COLLABORATION_SERVICE_URL ?? 'http://collaboration-service:3003';
-const questionServiceBaseUrl = process.env.QUESTION_SERVICE_URL ?? 'http://question-service:3001';
+const collaborationServiceBaseUrl = process.env.COLLABORATION_SERVICE_URL ?? 'http://localhost:3003';
+const questionServiceBaseUrl = process.env.QUESTION_SERVICE_URL ?? 'http://localhost:3001';
 const questionService = new QuestionService(questionServiceBaseUrl);
 const matchingService = new MatchingService(io, redisService, questionService, collaborationServiceBaseUrl);
 

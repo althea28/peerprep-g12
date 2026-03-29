@@ -75,7 +75,7 @@ export interface CandidateMatch {
 export interface MatchResponsePayload {
   status: MatchResponseStatus;
   flowStatus: ActionFlowStatus;
-  roomId?: string;
+  sessionId?: string;
   timeoutSeconds?: number;
   message?: string;
   proposedMatch?: CandidateMatch;
