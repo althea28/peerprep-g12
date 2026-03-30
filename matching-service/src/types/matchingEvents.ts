@@ -27,16 +27,16 @@ export enum ActionFlowStatus {
 
 // Temporary for testing, to connect with question service later
 export enum Topic {
-    ARRAYS = 'arrays',
-    SORTING = 'sorting',
-    STRINGS = 'strings',
-    HASH_TABLES = 'hash_tables',
-    LINKED_LISTS = 'linked_lists',
-    RECURSION = 'recursion',
-    TREES = 'trees',
-    GRAPHS = 'graphs',
-    HEAPS = 'heaps',
-    TRIES = 'tries',
+    ARRAYS = 'Arrays',
+    SORTING = 'Sorting',
+    STRINGS = 'Strings',
+    HASH_TABLES = 'Hash Tables',
+    LINKED_LISTS = 'Linked Lists',
+    RECURSION = 'Recursion',
+    TREES = 'Trees',
+    GRAPHS = 'Graphs',
+    HEAPS = 'Heaps',
+    TRIES = 'Tries',
 }
 
 export enum DifficultyLevel {
