@@ -57,19 +57,19 @@ function setStatus(connected) {
 function getUserId() {
   const fromInput = userIdInput.value.trim();
   if (fromInput) {
-    localStorage.setItem('matching-ui-user-id', fromInput);
+    sessionStorage.setItem('matching-ui-user-id', fromInput);
     return fromInput;
   }
 
-  const stored = localStorage.getItem('matching-ui-user-id');
+  const stored = sessionStorage.getItem('matching-ui-user-id');
   if (stored) {
     userIdInput.value = stored;
     return stored;
   }
 
-  const generated = `user-${Math.floor(Math.random() * 100000)}`;
+  const generated = crypto.randomUUID();
   userIdInput.value = generated;
-  localStorage.setItem('matching-ui-user-id', generated);
+  sessionStorage.setItem('matching-ui-user-id', generated);
   return generated;
 }
 

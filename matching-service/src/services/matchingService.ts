@@ -139,7 +139,7 @@ export class MatchingService {
 			userBId: candidate.userBId
 		});
 
-		await this.startImperfectMatchConfirmation(socket, userId, candidate);
+		await this.startImperfectMatchConfirmation(candidate);
 	}
 
 	async handleCancelRequest(socket: Socket, payload: CancelRequestPayload): Promise<void> {
@@ -307,15 +307,21 @@ export class MatchingService {
 		});
 	}
 
-	private async startImperfectMatchConfirmation(
-		socket: Socket,
-		userId: string,
-		candidate: CandidateMatch
-	): Promise<void> {
-		const context = this.activeContextsByUserId.get(userId);
-		if (!context) {
+	private async startImperfectMatchConfirmation(candidate: CandidateMatch): Promise<void> {
+		const contextA = this.activeContextsByUserId.get(candidate.userAId);
+		const contextB = this.activeContextsByUserId.get(candidate.userBId);
+		if (!contextA || !contextB) {
+			this.logger.warn('Unable to start imperfect confirmation: user context missing', {
+				userAId: candidate.userAId,
+				userBId: candidate.userBId,
+				hasContextA: Boolean(contextA),
+				hasContextB: Boolean(contextB)
+			});
 			return;
 		}
+
+		this.clearUserTimers(candidate.userAId);
+		this.clearUserTimers(candidate.userBId);
 
 		const resolvedCandidate = this.resolveImperfectMatchCriteria(candidate);
 		this.logger.info('Imperfect match resolved criteria ready', {
@@ -323,18 +329,22 @@ export class MatchingService {
 			userBId: resolvedCandidate.userBId,
 			resolvedCriteria: resolvedCandidate.resolvedCriteria
 		});
-		context.proposedImperfectMatch = resolvedCandidate;
+		contextA.proposedImperfectMatch = resolvedCandidate;
+		contextB.proposedImperfectMatch = resolvedCandidate;
 		await this.redisService.savePendingConfirmation(resolvedCandidate);
 
-		socket.emit(WebSocketEventType.MATCH_RESPONSE, {
+		const confirmationPayload: MatchResponsePayload = {
 			status: MatchResponseStatus.IMPERFECT_MATCH_NEEDS_CONFIRMATION,
 			flowStatus: ActionFlowStatus.WAITING_IMPERFECT_CONFIRMATION,
 			timeoutSeconds: IMPERFECT_CONFIRMATION_TIMEOUT_MS / 1000,
 			proposedMatch: resolvedCandidate,
 			message: 'Imperfect match proposed. Waiting for both confirmations.'
-		});
+		};
+		// Notify both users of proposed imperfect match
+		this.emitToUser(candidate.userAId, confirmationPayload);
+		this.emitToUser(candidate.userBId, confirmationPayload);
 
-		context.confirmationTimer = setTimeout(async () => {
+		const confirmationTimer = setTimeout(async () => {
 			this.logger.info('Imperfect confirmation timer expired', {
 				userAId: resolvedCandidate.userAId,
 				userBId: resolvedCandidate.userBId,
@@ -342,6 +352,9 @@ export class MatchingService {
 			});
 			await this.failImperfectMatch(resolvedCandidate, 'Confirmation window expired.');
 		}, IMPERFECT_CONFIRMATION_TIMEOUT_MS);
+
+		contextA.confirmationTimer = confirmationTimer;
+		contextB.confirmationTimer = confirmationTimer;
 	}
 
 	private resolveImperfectMatchCriteria(candidate: CandidateMatch): CandidateMatch {
