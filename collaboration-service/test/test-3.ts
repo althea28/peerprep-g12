@@ -1,0 +1,33 @@
+//tests - idle warning after 15s, session ends after 10s grace, both users notified
+import { io } from 'socket.io-client';
+
+const SESSION_ID = '68e42a0f-ac8f-42ef-9728-0cbb2ede52c4';
+const USER1_ID = 'a9261639-ad11-45d9-8ac1-5f3873f83acf';
+const USER2_ID = 'ecba29b9-541c-4170-9081-df13b6668173';
+
+const socket1 = io('http://localhost:3003');
+const socket2 = io('http://localhost:3003');
+
+socket1.on('connect', () => socket1.emit('join-session', { sessionId: SESSION_ID, userId: USER1_ID }));
+socket2.on('connect', () => socket2.emit('join-session', { sessionId: SESSION_ID, userId: USER2_ID }));
+
+socket1.on('session-joined', () => console.log('User1 joined, idle timer started (15s)'));
+socket2.on('session-joined', () => console.log('User2 joined'));
+
+// no activity — wait for idle warning at 15s
+socket1.on('idle-warning', (d: any) => console.log('User1 idle warning:', d));
+socket2.on('idle-warning', (d: any) => console.log('User2 idle warning:', d));
+
+// session should auto end after 10s grace
+socket1.on('session-ended', (d: any) => {
+  console.log('User1 session ended (idle):', d);
+  console.log('Check Supabase — session should be inactive');
+});
+socket2.on('session-ended', (d: any) => console.log('User2 session ended (idle):', d));
+
+setTimeout(() => {
+  console.log('\nDone!');
+  socket1.disconnect();
+  socket2.disconnect();
+  process.exit(0);
+}, 40000);

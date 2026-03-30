@@ -1,0 +1,48 @@
+// test normal path - join, code sync, Redis save, Supabase save, normal session end
+import { io } from 'socket.io-client';
+
+const SESSION_ID = 'a97d8b4c-d422-4259-bd8b-6ba3857cfb55';
+const USER1_ID = 'a9261639-ad11-45d9-8ac1-5f3873f83acf';
+const USER2_ID = 'ecba29b9-541c-4170-9081-df13b6668173';
+
+const socket1 = io('http://localhost:3003');
+const socket2 = io('http://localhost:3003');
+
+socket1.on('connect', () => socket1.emit('join-session', { sessionId: SESSION_ID, userId: USER1_ID }));
+socket2.on('connect', () => socket2.emit('join-session', { sessionId: SESSION_ID, userId: USER2_ID }));
+
+socket1.on('session-joined', () => console.log('User1 joined'));
+socket2.on('session-joined', () => console.log('User2 joined'));
+socket1.on('user-joined', (d: any) => console.log('User1 sees partner:', d));
+socket2.on('user-joined', (d: any) => console.log('User2 sees partner:', d));
+
+// send code updates
+setTimeout(() => {
+  console.log('\n--- Sending code updates ---');
+  socket1.emit('yjs-update', { sessionId: SESSION_ID, update: [], code: 'print("user1 code")' });
+  socket2.emit('yjs-update', { sessionId: SESSION_ID, update: [], code: 'print("user2 code - latest")' });
+}, 1000);
+
+socket1.on('yjs-update', (d: any) => console.log('User1 received update'));
+socket2.on('yjs-update', (d: any) => console.log('User2 received update'));
+
+// wait for Supabase save (3s interval)
+setTimeout(() => {
+  console.log('\n--- Waiting for Supabase save, check DB now ---');
+}, 5000);
+
+// normal session end
+setTimeout(() => {
+  console.log('\n--- Normal session end ---');
+  socket1.emit('end-session', { sessionId: SESSION_ID, userId: USER1_ID });
+}, 7000);
+
+socket2.on('session-ended', (d: any) => console.log('User2 notified:', d));
+socket2.on('rejoin-available', (d: any) => console.log('Should NOT see this (not early termination):', d));
+
+setTimeout(() => {
+  console.log('\nDone! Check Supabase — session should be inactive with final code saved');
+  socket1.disconnect();
+  socket2.disconnect();
+  process.exit(0);
+}, 9000);
