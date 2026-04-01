@@ -38,7 +38,7 @@ export async function createTopic(req: Request, res: Response) {
     }
 
     const { data, error } = await supabase
-        .schema('questionservice')
+        .schema('question_service')
         .from('topics')
         .insert({ name, is_empty: true })
         .select()
@@ -70,7 +70,7 @@ export async function deleteTopic(req: Request, res: Response) {
 
     //Check topic exists
     const { data: topic, error: topicFetchError } = await supabase
-        .schema('questionservice')
+        .schema('question_service')
         .from('topics')
         .select('name')
         .eq('name', name)
@@ -82,7 +82,7 @@ export async function deleteTopic(req: Request, res: Response) {
 
     //Find all questions linked to the topic 
     const { data: linkedQuestions, error: linkedError } = await supabase
-        .schema('questionservice')
+        .schema('question_service')
         .from('question_topics')
         .select('question_id')
         .eq('topic', name);
@@ -94,7 +94,7 @@ export async function deleteTopic(req: Request, res: Response) {
 
         //For each linked question, check how many topics it has in total 
         const { data: topicCounts, error: countError } = await supabase
-            .schema('questionservice')
+            .schema('question_service')
             .from('question_topics')
             .select('question_id')
             .in('question_id', questionIds);
@@ -112,7 +112,7 @@ export async function deleteTopic(req: Request, res: Response) {
 
          if (toArchive.length > 0) {
             const { error: archiveError } = await supabase
-                .schema('questionservice')
+                .schema('question_service')
                 .from('questions')
                 .update({ availability_status: 'archived' })
                 .in('id', toArchive);
@@ -123,7 +123,7 @@ export async function deleteTopic(req: Request, res: Response) {
 
     //Delete the topic -- rows will automatically be removed from question_topics bc of CASCADE
     const { error : deleteError } = await supabase
-        .schema('questionservice')
+        .schema('question_service')
         .from('topics')
         .delete()
         .eq('name', name);

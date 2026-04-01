@@ -19,7 +19,7 @@ MAX_PER_BUCKET = 10
 
 buckets = defaultdict(lambda: defaultdict(list))
 
-with open('question_dataset.csv') as f:
+with open('lcdataset.csv') as f:
     reader = csv.DictReader(f)
     rows = list(reader)
 
@@ -47,9 +47,11 @@ for row in rows:
 
     question = {
         'title': row['title'],
-        'description': row['description'].strip(),
         'difficulty': difficulty,
-        'topics': mapped_topics
+        'topics': mapped_topics,
+        'blocks': [
+        { 'block_type': 'text', 'content': row['description'].strip() }
+        ]
     }
 
     for topic in mapped_topics:

@@ -13,9 +13,9 @@ const supabase = createClient(
 
 interface Question {
     title: string;
-    description: string;
     difficulty: string;
-    topics: string[]
+    topics: string[];
+    blocks: { block_type: string; content: string }[];
 }
 
 interface SeedData {
@@ -33,7 +33,7 @@ async function seed() {
     const topicRows = data.topics.map(name => ({ name, is_empty: true}));
 
     const { error: topicError } = await supabase
-        .schema('questionservice')
+        .schema('question_service')
         .from('topics')
         .upsert(topicRows, { onConflict: 'name' });
     
@@ -50,11 +50,10 @@ async function seed() {
 
     for (const q of data.questions) {
         const { data: inserted, error: qError } = await supabase
-            .schema('questionservice')
+            .schema('question_service')
             .from('questions')
             .insert({
                 title: q.title,
-                description: q.description,
                 difficulty: q.difficulty,
                 availability_status: 'available'
             })
@@ -67,6 +66,24 @@ async function seed() {
             continue;
         }
 
+        const blockRows = q.blocks.map((b, i) => ({
+            question_id: inserted.id,
+            block_order: i,
+            block_type: b.block_type,
+            content: b.content
+        }));
+
+        const { error: blockError } = await supabase
+            .schema('question_service')
+            .from('question_blocks')
+            .insert(blockRows);
+
+        if (blockError) {
+            console.error(`Failed to insert blocks for "${q.title}":`, blockError.message);
+            failCount++;
+            continue;
+        }
+
         //question_topic insertion 
         const topicLinks = q.topics.map(topic => ({
             question_id: inserted.id,
@@ -74,7 +91,7 @@ async function seed() {
         }));
 
         const { error: linkError } = await supabase
-            .schema('questionservice')
+            .schema('question_service')
             .from('question_topics')
             .insert(topicLinks);
         

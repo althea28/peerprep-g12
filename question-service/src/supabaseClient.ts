@@ -11,5 +11,5 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
-    db: { schema: 'questionservice' }
+    db: { schema: 'question_service' }
 });

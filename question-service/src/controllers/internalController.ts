@@ -1,4 +1,3 @@
-import { diff } from "node:util";
 import { supabase } from "../supabaseClient";
 import { Request, Response } from 'express'; 
 
@@ -22,7 +21,7 @@ export async function fetchQuestionForSession(req: Request, res: Response) {
 
     //Find all the questions matching the topic via question_topics table
     const { data: matchingLinks, error: linkError } = await supabase
-        .schema('questionservice')
+        .schema('question_service')
         .from('question_topics')
         .select('question_id')
         .eq('topic', topic);
@@ -37,7 +36,7 @@ export async function fetchQuestionForSession(req: Request, res: Response) {
 
     //From those, get only available questions matching the difficulty
     const { data: questions, error: questionError } = await supabase
-        .schema('questionservice')
+        .schema('question_service')
         .from('questions')
         .select('*')
         .in('id', questionIds)
@@ -53,5 +52,17 @@ export async function fetchQuestionForSession(req: Request, res: Response) {
     //Select random question from the results
     //Flooring ensures the final value is always within the range of indexes of the questions
     const randomIndex = Math.floor(Math.random() * questions.length);
-    return res.status(200).json(questions[randomIndex]);
+    const selected = questions[randomIndex];
+
+    //Fetch and attach blocks
+    const { data: blocks, error: blockError } = await supabase
+        .schema('questionservice')
+        .from('question_blocks')
+        .select('block_order, block_type, content')
+        .eq('question_id', selected.id)
+        .order('block_order', { ascending: true });
+    
+    if (blockError) return res.status(500).json({ error: blockError.message });
+
+    return res.status(200).json({ ...selected, blocks: blocks ?? [] });
 }
