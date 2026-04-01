@@ -111,6 +111,33 @@ export async function checkUniqueUsername(username: string) {
   );
 }
 
+export async function requestResetPassword(email: string) {
+  return authFetch<{
+    code?: string;
+    message?: string;
+  }>(`${API_BASE}/auth/requestResetPassword`, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(
+  password: string,
+  refreshToken: string,
+  accessToken: string,
+) {
+  return authFetch<{
+    code?: string;
+    message?: string;
+  }>(`${API_BASE}/auth/resetPassword`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ password, refreshToken }),
+  });
+}
+
 export async function getUserInfo() {
   return authFetch<{
     id: string;
