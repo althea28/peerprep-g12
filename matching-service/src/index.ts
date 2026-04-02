@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import express, { type Request, type Response } from 'express';
@@ -13,6 +14,7 @@ import {
   type ConfirmRequestPayload,
   type MatchRequestPayload
 } from './types/matchingEvents.js';
+import matchingRoutes from './routes/matchingRoutes.js';
 
 const app = express();
 const logger = createLogger('index');
@@ -38,6 +40,9 @@ const PORT = Number(process.env.PORT ?? 3002);
 app.get('/', (_req: Request, res: Response) => {
   res.send('Matching Service is running');
 });
+
+// Routes
+app.use('/', matchingRoutes);
 
 // Listens for connection event
 // TBD with frontend: Should frontend connect to socket upon entering matching page?
