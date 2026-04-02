@@ -49,6 +49,17 @@ export class MatchingService {
 		const { userId, criteria } = payload;
 		this.logger.info('Handling match request', { userId, socketId: socket.id, criteria });
 
+		if (await this.redisService.isUserBanned(userId)) {
+			this.logger.warn('Rejected match request: user is banned', { userId });
+			this.clearUserContext(userId);
+			socket.emit(WebSocketEventType.MATCH_RESPONSE, {
+				status: MatchResponseStatus.UNSUCCESSFUL_MATCH,
+				flowStatus: ActionFlowStatus.TERMINATED,
+				message: 'You are temporarily banned from matching.'
+			});
+			return;
+		}
+
 		// Validate difficulty and language
 		const validDifficulties = Object.values(DifficultyLevel);
 		const validLanguages = Object.values(ProgrammingLanguage);
@@ -294,6 +305,48 @@ export class MatchingService {
 		});
 	}
 
+	// Handles the case when a user is banned while pending imperfect match confirmation
+	async handleExternalBan(userId: string): Promise<void> {
+		this.logger.info('Handling external ban signal', { userId });
+
+		const pending = await this.redisService.getPendingConfirmationByUser(userId);
+		if (!pending?.proposedMatch) {
+			await this.redisService.removeUserFromQueue(userId);
+			this.clearUserContext(userId);
+			return;
+		}
+
+		// Checks if banned user was currently pending imperfect match confirmation
+		const candidate = pending.proposedMatch;
+		const otherUserId = candidate.userAId === userId ? candidate.userBId : candidate.userAId;
+		const otherCriteria = otherUserId === candidate.userAId ? candidate.criteriaA : candidate.criteriaB;
+		const otherQueuedAt = otherUserId === candidate.userAId
+			? candidate.queuedAtUserA ?? Date.now()
+			: candidate.queuedAtUserB ?? Date.now();
+
+		// Clear the pending imperfect match confirmation
+		await this.redisService.clearPendingConfirmation(candidate);
+		this.clearUserTimers(candidate.userAId);
+		this.clearUserTimers(candidate.userBId);
+
+		// Tell banned user they are banned
+		this.emitToUser(userId, {
+			status: MatchResponseStatus.MATCH_TIMEOUT,
+			flowStatus: ActionFlowStatus.TERMINATED,
+			message: 'You are temporarily banned from matching.'
+		});
+		this.clearUserContext(userId);
+
+		// Tell other user the match failed and requeue them if eligible
+		await this.requeueUserAfterImperfectFailure({
+			userId: otherUserId,
+			criteria: otherCriteria,
+			queuedAt: otherQueuedAt,
+			rejectedCandidates: otherCriteria.rejectedCandidates ?? [],
+			reason: 'The other user was removed during confirmation.'
+		});
+	}
+
     // Clears any old timers and sets new context for the user (gives them the most recent socket id)
 	private setOrResetContext(socketId: string, userId: string, queuedSince: number): void {
 		const current = this.activeContextsByUserId.get(userId);
@@ -496,6 +549,20 @@ export class MatchingService {
 	}): Promise<void> {
 		const context = this.activeContextsByUserId.get(params.userId);
 		if (!context) {
+			return;
+		}
+
+		if (await this.redisService.isUserBanned(params.userId)) {
+			this.logger.info('Skipping requeue because user is banned', {
+				userId: params.userId,
+				reason: params.reason
+			});
+			this.emitToUser(params.userId, {
+				status: MatchResponseStatus.MATCH_TIMEOUT,
+				flowStatus: ActionFlowStatus.TERMINATED,
+				message: 'You are temporarily banned from matching.'
+			});
+			this.clearUserContext(params.userId);
 			return;
 		}
 

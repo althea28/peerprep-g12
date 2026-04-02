@@ -23,6 +23,7 @@ export class RedisService {
 	private readonly logger = createLogger('RedisService');
 	private readonly client: RedisClientType;
 	private readonly keyPrefix = 'matching';
+	private readonly banTtlSeconds = 60 * 60;
 	private readonly minimumCompatibilityScore = 3;
 	private readonly difficultyRank: Record<MatchCriteria['difficulty'], number> = {
 		easy: 1,
@@ -53,6 +54,10 @@ export class RedisService {
 
 	private buildTopicQueueKey(criteria: MatchCriteria): string {
 		return `${this.keyPrefix}:queue:topic:${criteria.topic}`;
+	}
+
+	private buildBannedUserKey(userId: string): string {
+		return `${this.keyPrefix}:banned:user:${userId}`;
 	}
 
 	// 'pending' keys refer to pending imperfect match confirmations
@@ -216,6 +221,25 @@ export class RedisService {
 			queueKey,
 			remainingQueueSize
 		});
+	}
+
+	async banUser(userId: string): Promise<void> {
+		const bannedUserKey = this.buildBannedUserKey(userId);
+		const pendingState = await this.getPendingConfirmationByUser(userId);
+
+		await this.client.set(bannedUserKey, 'true', { EX: this.banTtlSeconds });
+		await this.removeUserFromQueue(userId);
+
+		this.logger.info('User banned', {
+			userId,
+			bannedUserKey,
+			banTtlSeconds: this.banTtlSeconds,
+			hadPendingConfirmation: Boolean(pendingState)
+		});
+	}
+
+	async isUserBanned(userId: string): Promise<boolean> {
+		return (await this.client.get(this.buildBannedUserKey(userId))) !== null;
 	}
 
 	// Check if user is currently in queue

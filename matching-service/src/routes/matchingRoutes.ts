@@ -1,8 +1,12 @@
 import { Router } from 'express';
-import { banUser } from '../controllers/matchingController.js';
+import type { RedisService } from '../services/redisService.js';
+import type { MatchingService } from '../services/matchingService.js';
+import { createBanUserHandler } from '../controllers/matchingController.js';
 
-const router = Router();
+const createMatchingRoutes = (redisService: RedisService, matchingService: MatchingService) => {
+	const router = Router();
+	router.post('/ban', createBanUserHandler(redisService, (userId) => matchingService.handleExternalBan(userId)));
+	return router;
+};
 
-router.post('/ban', banUser);
-
-export default router;
+export default createMatchingRoutes;

@@ -14,7 +14,7 @@ import {
   type ConfirmRequestPayload,
   type MatchRequestPayload
 } from './types/matchingEvents.js';
-import matchingRoutes from './routes/matchingRoutes.js';
+import createMatchingRoutes from './routes/matchingRoutes.js';
 
 const app = express();
 const logger = createLogger('index');
@@ -42,7 +42,7 @@ app.get('/', (_req: Request, res: Response) => {
 });
 
 // Routes
-app.use('/', matchingRoutes);
+app.use('/', createMatchingRoutes(redisService, matchingService));
 
 // Listens for connection event
 // TBD with frontend: Should frontend connect to socket upon entering matching page?
