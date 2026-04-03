@@ -8,21 +8,62 @@
 3. Fill in `.env` (see `.env.example`)
 4. Run: `npm run dev`
 
-## REST API Endpoints
+---
 
-### `GET /health`
-Health check. No auth required.
+## Socket.io Events
 
-**Response:**
-```json
-{ "status": "ok", "service": "collaboration-service" }
-```
+**Connection:** `ws://localhost:3003`
+
+### Emit (client → server)
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `join-session` | `{ sessionId, userId }` | Join a collaboration room |
+| `yjs-update` | `{ sessionId, update }` | Send Yjs binary update. `update` = `Array.from(Uint8Array)` |
+| `end-session` | `{ sessionId, userId }` | End the session |
+| `confirm-session-end` | `{ sessionId }` | Acknowledge partner's session end |
+| `request-sync` | `{ sessionId }` | Request full doc state from partner on rejoin |
+| `sync-response` | `{ sessionId, update, targetSocketId }` | Send full doc state to rejoining partner |
+| `save-code` | `{ sessionId, code }` | Send plain text for Redis/Supabase persistence |
+
+### Listen (server → client)
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `session-joined` | `{ sessionId }` | Confirms you have joined the room |
+| `code-restored` | `{ code }` | Plain text code from Redis or Supabase fallback on join (use only if ydoc is empty) |
+| `user-joined` | `{ userId }` | Partner joined the room |
+| `user-disconnected` | `{ userId }` | Partner unexpectedly disconnected |
+| `yjs-update` | `{ update }` |  Partner's Yjs binary update. Apply with `Y.applyUpdate(ydoc, new Uint8Array(update), 'remote')` |
+| `sync-requested` | `{ fromSocketId }` | Rejoining user needs your full doc state |
+| `sync-response` | `{ update }` | Full doc state from partner on rejoin |
+| `session-ended` | `{ message, endedBy }` | Session ended by partner or inactivity |
+| `rejoin-available` | `{ message }` | Partner ended early, you can rejoin queue immediately |
+| `idle-warning` | `{ message }` | Both users idle for 10 minutes |
+| `error` | `{ message }` | Something went wrong |
 
 ---
 
-### `POST /sessions`
-Create a new collaboration room. Called by Matching Service — no auth token required.
+## Inter-Service Communication
 
+### Calls made by this service
+| Method | URL | Purpose |
+|--------|-----|---------|
+| `GET` | `USER_SERVICE_URL/user/getUserInfo` | Verify user token |
+| `POST` | `QUESTION_SERVICE_URL/internal/questions/fetch` | Fetch question on session creation |
+| `POST` | `MATCHING_SERVICE_URL/internal/early-termination` | Notify of early termination (F11.7) ** endpoint TBC |
+
+- Failed Matching Service notifications are stored in failed_notifications table and retried every 2 minutes. Entries older than 1 hour are automatically deleted as they fall outside the rolling window.
+
+### Calls made to this service
+| Caller | Method | Endpoint | Purpose |
+|--------|--------|----------|---------|
+| Matching Service | `POST` | `/sessions` | Create collaboration room after successful match |
+| Frontend | `GET` | `/sessions/active` | Check for active session on login |
+| Frontend | `GET` | `/sessions/:sessionId` | Get session details |
+| Frontend | `PATCH` | `/sessions/:sessionId/end` | End session via HTTP fallback |
+
+### `POST /sessions`
 **Request body:**
 ```json
 {
@@ -51,87 +92,43 @@ Create a new collaboration room. Called by Matching Service — no auth token re
 }
 ```
 
----
-
-### `GET /sessions/active`
-Get the calling user's current active session. Used on login to prompt rejoin (F11.2.2).
-
-**Headers:** `Authorization: Bearer <token>`
-
-**Response `200`:** Session object.
-**Response `404`:** No active session found.
+**Need authorization: Bearer <token>:**
+* `GET /sessions/active`
+* `GET /sessions/:sessionId`
+* `PATCH /sessions/:sessionId/end`
 
 ---
 
-### `GET /sessions/:sessionId`
-Get a specific session by ID. User must be a participant.
+## Merging Edit Conflicts Flow
+1. **Join session**
+   - Emit: `join-session { sessionId, userId }`
+   - Listen: `session-joined`
 
-**Headers:** `Authorization: Bearer <token>`
+2. **Initialize editor**
+   - Create `Y.Doc`
+   - Bind to Monaco using `y-monaco`
 
-**Response `200`:** Session object.
-**Response `403`:** User is not a participant.
-**Response `404`:** Session not found.
+3. **Send local changes**
+   - On edit → Yjs generates update
+   - Emit: `yjs-update { sessionId, update }`
 
----
+4. **Receive remote changes**
+   - Listen: `yjs-update { update }`
+   - Apply using `Y.applyUpdate`
 
-### `PATCH /sessions/:sessionId/end`
-End a collaboration session (F11.5).
+5. **Initial code restore**
+   - Listen: `code-restored { code }`
+   - Apply only if document is empty
 
-**Headers:** `Authorization: Bearer <token>`
+6. **Rejoin sync**
+   - Emit: `request-sync { sessionId }`
+   - Listen: `sync-requested { fromSocketId }`
+   - Emit: `sync-response { sessionId, update, targetSocketId }`
+   - Listen: `sync-response { update }`
 
-**Response `200`:** Updated session object with `status: "inactive"` and `end_timestamp` set.
-**Response `403`:** User is not a participant.
-**Response `404`:** Session not found.
-
----
-
-## Socket.io Events
-
-**Connection:** `ws://localhost:3003`
-
-### Emit (client → server)
-
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `join-session` | `{ sessionId, userId }` | Join a collaboration room |
-| `yjs-update` | `{ sessionId, update, code }` | Send code change. `update` = Yjs binary delta, `code` = full code string |
-| `end-session` | `{ sessionId, userId }` | End the session |
-| `confirm-session-end` | `{ sessionId }` | Acknowledge partner's session end |
-
-### Listen (server → client)
-
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `code-restored` | `{ code }` | Previous code restored from Redis on join. If Redis key is unavailable, falls back to last saved code_content from Supabase. |
-| `user-joined` | `{ userId }` | Partner joined the room |
-| `user-disconnected` | `{ userId }` | Partner unexpectedly disconnected |
-| `yjs-update` | `{ update }` | Partner made a code change |
-| `session-ended` | `{ message, endedBy }` | Session ended by partner or inactivity |
-| `rejoin-available` | `{ message }` | Partner ended early, you can rejoin queue immediately |
-| `idle-warning` | `{ message }` | Both users idle for 10 minutes |
-| `error` | `{ message }` | Something went wrong |
-
----
-
-## Inter-Service Communication
-
-### Calls made by this service
-| Method | URL | Purpose |
-|--------|-----|---------|
-| `GET` | `USER_SERVICE_URL/user/getUserInfo` | Verify user token |
-| `POST` | `QUESTION_SERVICE_URL/internal/questions/fetch` | Fetch question on session creation |
-| `POST` | `MATCHING_SERVICE_URL/internal/early-termination` | Notify of early termination (F11.7) ** endpoint TBC |
-
-- Failed Matching Service notifications are stored in failed_notifications table and retried every 2 minutes. Entries older than 1 hour are automatically deleted as they fall outside the rolling window.
-
-### Calls made to this service
-| Caller | Method | Endpoint | Purpose |
-|--------|--------|----------|---------|
-| Matching Service | `POST` | `/sessions` | Create collaboration room after successful match |
-| Frontend | `GET` | `/sessions/active` | Check for active session on login |
-| Frontend | `GET` | `/sessions/:sessionId` | Get session details |
-| Frontend | `PATCH` | `/sessions/:sessionId/end` | End session via HTTP fallback |
-
+7. **Persistence (optional)**
+   - Emit periodically: `save-code { sessionId, code }`
+   - Used for Redis/Supabase recovery
 ---
 
 ## Known Pending Items

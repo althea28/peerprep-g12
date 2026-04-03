@@ -1,0 +1,44 @@
+// tests - early termination detection, failed notification stored, retry job, TTL cleanup
+import { io } from 'socket.io-client';
+
+const SESSION_ID = '6f5d8c12-5f3c-4b39-a638-6254449a3641';
+const USER1_ID = 'a9261639-ad11-45d9-8ac1-5f3873f83acf';
+const USER2_ID = 'ecba29b9-541c-4170-9081-df13b6668173';
+
+const socket1 = io('http://localhost:3003');
+const socket2 = io('http://localhost:3003');
+
+socket1.on('connect', () => socket1.emit('join-session', { sessionId: SESSION_ID, userId: USER1_ID }));
+socket2.on('connect', () => socket2.emit('join-session', { sessionId: SESSION_ID, userId: USER2_ID }));
+
+// set some code
+setTimeout(() => {
+  socket1.emit('yjs-update', { sessionId: SESSION_ID, update: [], code: 'print("code before rejoin")' });
+}, 500);
+
+// early termination — end within 2 mins
+setTimeout(() => {
+  console.log('\n--- Early termination ---');
+  socket1.emit('end-session', { sessionId: SESSION_ID, userId: USER1_ID });
+}, 1500);
+
+socket2.on('rejoin-available', (d: any) => console.log('User2 rejoin-available:', d));
+socket2.on('session-ended', (d: any) => console.log('User2 session-ended:', d));
+
+// check failed_notifications in Supabase after ~2s
+setTimeout(() => {
+  console.log('\n--- Check Supabase failed_notifications table for new row ---');
+}, 3000);
+
+// check retry job fires at 30s
+setTimeout(() => {
+  console.log('\n--- Retry job should have fired, check server logs ---');
+}, 32000);
+
+// check TTL cleanup at 2 mins
+setTimeout(() => {
+  console.log('\n--- TTL cleanup should have run, check failed_notifications is empty ---');
+  socket1.disconnect();
+  socket2.disconnect();
+  process.exit(0);
+}, 125000);
