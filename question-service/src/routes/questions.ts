@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth, requireAdmin } from '../middleware/auth';
 import {
     getAllQuestions,
     getQuestionByNumber,
@@ -11,12 +12,12 @@ import {
 
 const router = Router();
 
-router.get('/', getAllQuestions);
-router.get('/:questionNumber', getQuestionByNumber);
-router.post('/', createQuestion);
-router.patch('/:questionNumber', editQuestion);
-router.patch('/:questionNumber/archive', archiveQuestion);
-router.patch('/:questionNumber/restore', restoreQuestion);
-router.delete('/:questionNumber', deleteQuestion);
+router.get('/', requireAuth, requireAdmin, getAllQuestions);
+router.get('/:questionNumber', requireAuth, requireAdmin, getQuestionByNumber);
+router.post('/', requireAuth, requireAdmin, createQuestion);
+router.patch('/:questionNumber', requireAuth, requireAdmin, editQuestion);
+router.patch('/:questionNumber/archive', requireAuth, requireAdmin, archiveQuestion);
+router.patch('/:questionNumber/restore', requireAuth, requireAdmin, restoreQuestion);
+router.delete('/:questionNumber', requireAuth, requireAdmin, deleteQuestion);
 
 export default router;

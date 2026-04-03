@@ -33,6 +33,11 @@ export const initCollabService = (httpServer: HttpServer) => {
           return;
         }
 
+        if (session.status !== 'active') {
+          socket.emit('error', { message: 'Session is no longer active' });
+          return;
+        }
+
         // verify user is a participant
         if (session.user1_id !== userId && session.user2_id !== userId) {
           socket.emit('error', { message: 'Unauthorised access to session' });
@@ -41,6 +46,8 @@ export const initCollabService = (httpServer: HttpServer) => {
 
         // join Socket.io room
         socket.join(sessionId);
+        socket.emit('session-joined', { sessionId });
+
         socket.data.sessionId = sessionId;
         socket.data.userId = userId;
 
@@ -69,15 +76,33 @@ export const initCollabService = (httpServer: HttpServer) => {
     });
 
     // Yjs code update: broadcast to other user in room (F11.4.1)
-    socket.on('yjs-update', async ({ sessionId, update, code }) => {
+    socket.on('yjs-update', async ({ sessionId, update}) => {
       // broadcast to other user
       socket.to(sessionId).emit('yjs-update', { update });
 
-      // save latest code to redis
-      await redisClient.set(`session:${sessionId}:code`, code);
-
       // reset idle timer on activity
       resetIdleTimer(io, sessionId);
+    });
+
+    // User rejoins mid-session, needs current doc state from partner
+    socket.on('request-sync', ({ sessionId }) => {
+      // relay to other user in room to send their full doc state
+      socket.to(sessionId).emit('sync-requested', { fromSocketId: socket.id });
+    });
+
+    // Partner sends their full doc state back
+    socket.on('sync-response', ({ sessionId, update, targetSocketId }) => {
+      // relay full state to the rejoining user specifically
+      io.to(targetSocketId).emit('sync-response', { update });
+    });
+
+    socket.on('save-code', async ({ sessionId, code }) => {
+      const { sessionId: storedSessionId, userId } = socket.data;
+      if (storedSessionId !== sessionId) {
+        socket.emit('error', { message: 'Unauthorised' });
+        return;
+      }
+      await redisClient.set(`session:${sessionId}:code`, code);
     });
 
     // user ends session (F11.5)
@@ -88,10 +113,28 @@ export const initCollabService = (httpServer: HttpServer) => {
         socket.emit('error', { message: 'Session not found' });
         return;
       }
+      // check session is still active before ending
+      if (session.status !== 'active') {
+        socket.emit('error', { message: 'Session is already inactive' });
+        return;
+      }
 
       await sessionService.endSession(sessionId);
+
+      // final code save to Supabase on session end
+      const finalCode = await redisClient.get(`session:${sessionId}:code`);
+      if (finalCode) {
+        await sessionService.updateSession(sessionId, { code_content: finalCode });
+      }
+
       clearIdleTimers(sessionId);
       stopCodeSaveInterval(sessionId);
+
+      // check if part of session
+      if (session.user1_id !== userId && session.user2_id !== userId) {
+        socket.emit('error', { message: 'Unauthorised access to session' });
+        return;
+      }
 
       // check for early termination (F11.7)
       const sessionDurationMs = Date.now() - new Date(session.start_timestamp).getTime();
@@ -228,9 +271,8 @@ const clearIdleTimers = (sessionId: string) => {
 const startCodeSaveInterval = (sessionId: string) => {
 
   console.log(`Starting code save interval for session ${sessionId}`);
-  // clear existing interval if any
-  const existing = codeSaveTimers.get(sessionId);
-  if (existing) clearInterval(existing);
+  // maintain existing interval if any
+  if (codeSaveTimers.has(sessionId)) return;
 
   const interval = setInterval(async () => {
   try {
@@ -307,5 +349,5 @@ export const startRetryJob = () => {
     }
   }, 2 * 60 * 1000); // every 2 minutes
 
-  console.log('Failed notification retry job started');
+  console.log('Any pending notifications will be sent every 2 mins');
 };
