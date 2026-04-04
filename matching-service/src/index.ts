@@ -42,7 +42,7 @@ app.get('/', (_req: Request, res: Response) => {
 });
 
 // Routes
-app.use('/', createMatchingRoutes(matchingService));
+app.use('/', createMatchingRoutes(redisService, matchingService));
 
 // Listens for connection event
 // TBD with frontend: Should frontend connect to socket upon entering matching page?
