@@ -35,6 +35,10 @@ interface ActiveMatchContext {
 }
 
 export type EarlyTerminationOutcome = 'strike_recorded' | 'ban_triggered' | 'already_banned';
+export type EarlyTerminationDecision = {
+	outcome: EarlyTerminationOutcome;
+	strikeCount?: number;
+};
 
 export class MatchingService {
 	private activeContextsByUserId = new Map<string, ActiveMatchContext>();
@@ -307,15 +311,15 @@ export class MatchingService {
 		});
 	}
 
-	async handleEarlyTermination(userId: string): Promise<EarlyTerminationOutcome> {
+	async handleEarlyTermination(userId: string): Promise<EarlyTerminationDecision> {
 		this.logger.info('Handling early termination report', { userId });
 
-		const outcome = await this.redisService.recordEarlyTermination(userId);
-		if (outcome === 'ban_triggered') {
+		const decision = await this.redisService.recordEarlyTermination(userId);
+		if (decision.outcome === 'ban_triggered') {
 			await this.handleExternalBan(userId);
 		}
 
-		return outcome;
+		return decision;
 	}
 
 	// Handles the case when a user is banned while pending imperfect match confirmation

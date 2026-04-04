@@ -252,37 +252,35 @@ export class RedisService {
 		return (await this.client.get(this.buildBannedUserKey(userId))) !== null;
 	}
 
-	async recordEarlyTermination(userId: string): Promise<'strike_recorded' | 'ban_triggered' | 'already_banned'> {
+	async recordEarlyTermination(userId: string): Promise<{ outcome: 'strike_recorded' | 'ban_triggered' | 'already_banned'; strikeCount?: number }> {
 		if (await this.isUserBanned(userId)) {
-			this.logger.debug(
-				'Early termination ignored because user is already banned. Warning: User appears to have access to collaboration session while banned.', 
-				{ userId });
-			return 'already_banned';
+			this.logger.debug('Early termination ignored because user is already banned', { userId });
+			return { outcome: 'already_banned' };
 		}
 
+		// Create or increment strike count and set TTL so strike expires one hour after most recent strike
 		const strikeKey = this.buildStrikeKey(userId);
+		const transaction = await this.client
+			.multi()
+			.incr(strikeKey)
+			.expire(strikeKey, this.strikeTtlSeconds)
+			.exec();
+		const strikeCount = Number(transaction?.[0] ?? 0);
 
-		// Creates strike key for user (with TTL of 1 hour) only if key doesn't already exist
-		const setResult = await this.client.set(strikeKey, 'true', {
-			EX: this.strikeTtlSeconds,
-			NX: true
-		});
-
-		// If setResult returned 'OK', strike was recorded (wasn't previously there). So user is safe from ban for now
-		if (setResult === 'OK') {
+		if (strikeCount < 5) {
 			this.logger.info('Early termination strike recorded', {
 				userId,
 				strikeKey,
-				strikeTtlSeconds: this.strikeTtlSeconds
+				strikeTtlSeconds: this.strikeTtlSeconds,
+				strikeCount
 			});
-			return 'strike_recorded';
+			return { outcome: 'strike_recorded', strikeCount };
 		}
 
-		// Otherwise, user is banned for 1 hour and strike key is cleared
-		await this.client.del(strikeKey);
+		// On 5th strike, user banned for an hour and strike history cleared for fresh start post-ban
 		await this.banUser(userId);
-		this.logger.info('Early termination allowance exceeded, user banned', { userId, strikeKey });
-		return 'ban_triggered';
+		this.logger.info('Early termination allowance exceeded, user banned', { userId, strikeKey, strikeCount });
+		return { outcome: 'ban_triggered', strikeCount };
 	}
 
 	// Check if user is currently in queue
