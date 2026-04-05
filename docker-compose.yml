@@ -40,7 +40,6 @@ services:
       - question-service
       - collaboration-service
 
-
   collaboration-service:
     build: ./collaboration-service
     ports:
@@ -49,11 +48,14 @@ services:
       - ./collaboration-service/.env
     environment:
       - PORT=3003
+      - USER_SERVICE_URL=http://user-service:3000
       - QUESTION_SERVICE_URL=http://question-service:3001
       - MATCHING_SERVICE_URL=http://matching-service:3002
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
       - REDIS_URL=redis://redis:6379
     depends_on:
       - redis
+      - user-service
       - question-service
 
   redis:
