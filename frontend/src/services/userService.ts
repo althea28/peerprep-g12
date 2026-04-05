@@ -1,4 +1,5 @@
-const API_BASE = "http://localhost:3000";
+const API_BASE =
+  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:3000";
 
 type RequestOptions = RequestInit & {
   headers?: Record<string, string>;

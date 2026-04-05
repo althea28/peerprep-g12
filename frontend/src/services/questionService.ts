@@ -1,5 +1,6 @@
-const API_BASE = "http://localhost:3001";
-
+const API_BASE =
+  import.meta.env.VITE_QUESTION_SERVICE_URL || "http://localhost:3001";
+  
 type QuestionTopic = {
   topic: string;
 };
