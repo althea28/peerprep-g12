@@ -38,6 +38,7 @@
 | `sync-requested` | `{ fromSocketId }` | Rejoining user needs your full doc state |
 | `sync-response` | `{ update }` | Full doc state from partner on rejoin |
 | `session-ended` | `{ message, endedBy }` | Session ended by partner or inactivity |
+| `early-termination-warning` | `{ message, strikeCount }` | Terminating user warned about early termination history |
 | `rejoin-available` | `{ message }` | Partner ended early, you can rejoin queue immediately |
 | `idle-warning` | `{ message }` | Both users idle for 10 minutes |
 | `error` | `{ message }` | Something went wrong |
@@ -59,6 +60,7 @@
 | Caller | Method | Endpoint | Purpose |
 |--------|--------|----------|---------|
 | Matching Service | `POST` | `/sessions` | Create collaboration room after successful match |
+| Matching Service | GET | /internal/active/:userId | Check if user has active session before matching |
 | Frontend | `GET` | `/sessions/active` | Check for active session on login |
 | Frontend | `GET` | `/sessions/:sessionId` | Get session details |
 | Frontend | `PATCH` | `/sessions/:sessionId/end` | End session via HTTP fallback |

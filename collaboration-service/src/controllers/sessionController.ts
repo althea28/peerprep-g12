@@ -73,6 +73,32 @@ export const getActiveSession = async (
   }
 };
 
+// Internal route for Matching Service to check if user has active session
+export const getActiveSessionByUserIdInternal = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const apiKey = req.headers['x-internal-service-secret'];
+    if (apiKey !== process.env.INTERNAL_SERVICE_SECRET) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    const userId = req.params['userId'] as string;
+    const session = await sessionService.getActiveSessionByUserId(userId);
+
+    if (!session) {
+      res.status(404).json({ error: 'No active session found' });
+      return;
+    }
+
+    res.status(200).json(session);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 export const endSession = async (
   req: AuthenticatedRequest,
   res: Response
