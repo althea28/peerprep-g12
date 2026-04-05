@@ -157,6 +157,37 @@ export async function getQuestionByNumber(req: Request, res: Response) {
 }
 
 /**
+ * Retrieves a single question by its UUID.
+ * Returns the exact stored version, including blocks and topics.
+ *
+ * @route GET /questions/id/:questionId
+ * @access Authenticated users
+ * @param {string} questionId - The UUID of the question to retrieve
+ * @returns {Object} The matching question object with its topics and blocks
+ */
+export async function getQuestionById(req: Request, res: Response) {
+  const { questionId } = req.params;
+
+  const { data, error } = await supabase
+    .schema("question_service")
+    .from("questions")
+    .select(`*, question_topics(topic)`)
+    .eq("id", questionId)
+    .single();
+
+  if (error || !data) {
+    return res.status(404).json({ error: "Question not found" });
+  }
+
+  const withBlocks = await attachBlocks([data]);
+  if (!withBlocks) {
+    return res.status(500).json({ error: "Failed to fetch question blocks." });
+  }
+
+  return res.status(200).json(withBlocks[0]);
+}
+
+/**
  * Create a new question in the repository.
  * All fields are required. Topics must already exist in the topics table.
  *

@@ -7,12 +7,14 @@ import {
     editQuestion,
     archiveQuestion,
     restoreQuestion,
-    deleteQuestion
+    deleteQuestion,
+    getQuestionById,
 } from '../controllers/questionController';
 
 const router = Router();
 
 router.get('/', requireAuth, requireAdmin, getAllQuestions);
+router.get("/id/:questionId", requireAuth, getQuestionById);
 router.get('/:questionNumber', requireAuth, requireAdmin, getQuestionByNumber);
 router.post('/', requireAuth, requireAdmin, createQuestion);
 router.patch('/:questionNumber', requireAuth, requireAdmin, editQuestion);

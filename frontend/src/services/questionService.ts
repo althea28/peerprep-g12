@@ -73,6 +73,10 @@ async function authQuestionFetch<T>(
   return data;
 }
 
+export async function getQuestionById(questionId: string) {
+  return authQuestionFetch<Question>(`${API_BASE}/questions/id/${questionId}`);
+}
+
 export async function getTopics() {
   return publicQuestionFetch<Topic[]>(`${API_BASE}/topics`);
 }
