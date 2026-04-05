@@ -1,0 +1,108 @@
+import { io, Socket } from 'socket.io-client';
+
+const USER1_ID = 'a9261639-ad11-45d9-8ac1-5f3873f83acf';
+const USER2_ID = 'ecba29b9-541c-4170-9081-df13b6668173';
+const COLLAB_URL = 'http://localhost:3003';
+const MATCHING_URL = 'http://localhost:3002';
+
+// helper to create a fresh session
+const createSession = async (): Promise<string> => {
+  const response = await fetch(`${COLLAB_URL}/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user1_id: USER1_ID,
+      user2_id: USER2_ID,
+      language: 'Python',
+      difficulty: 'easy',
+      topic: 'Arrays',
+    }),
+  });
+  const data = await response.json() as { session_id: string };
+  console.log(`Created session: ${data.session_id}`);
+  return data.session_id;
+};
+
+// helper to check user status from Matching Service
+const checkStatus = async (): Promise<void> => {
+  const response = await fetch(`${MATCHING_URL}/users/${USER1_ID}/status`);
+  const data = await response.json();
+  console.log(`User status:`, data);
+};
+
+// helper to do one early termination
+const doEarlyTermination = (sessionId: string, terminationNumber: number): Promise<void> => {
+  return new Promise((resolve) => {
+    const socket1 = io(COLLAB_URL);
+    const socket2 = io(COLLAB_URL);
+
+    socket1.on('connect', () => {
+      socket1.emit('join-session', { sessionId, userId: USER1_ID });
+    });
+    socket2.on('connect', () => {
+      socket2.emit('join-session', { sessionId, userId: USER2_ID });
+    });
+
+    socket1.on('session-joined', () => {
+      // end immediately (early termination)
+      setTimeout(() => {
+        console.log(`\n--- Early termination #${terminationNumber} ---`);
+        socket1.emit('end-session', { sessionId, userId: USER1_ID });
+      }, 500);
+    });
+
+    socket1.on('early-termination-warning', (data: any) => {
+      console.log(`Warning received on termination #${terminationNumber}:`, data);
+    });
+
+    socket2.on('rejoin-available', (data: any) => {
+      console.log(`User2 rejoin-available on termination #${terminationNumber}:`, data);
+    });
+
+    socket1.on('session-ended', () => {
+      setTimeout(() => {
+        socket1.disconnect();
+        socket2.disconnect();
+        resolve();
+      }, 1000);
+    });
+
+    socket2.on('session-ended', () => {
+      // just wait
+    });
+
+    // timeout safety
+    setTimeout(() => {
+      socket1.disconnect();
+      socket2.disconnect();
+      resolve();
+    }, 5000);
+  });
+};
+
+// main test
+const runTest = async () => {
+  console.log('=== Early Termination Warning Test ===\n');
+
+  // check initial status
+  console.log('--- Initial user status ---');
+  await checkStatus();
+
+  // do 5 early terminations
+  for (let i = 1; i <= 5; i++) {
+    const sessionId = await createSession();
+    await doEarlyTermination(sessionId, i);
+    
+    console.log(`\n--- Status after termination #${i} ---`);
+    await checkStatus();
+    
+    // small delay between terminations
+    await new Promise(r => setTimeout(r, 1000));
+  }
+
+  console.log('\n=== Test complete ===');
+  console.log('Expected: warning emitted from termination #3 onwards, isBanned: true after #5');
+  process.exit(0);
+};
+
+runTest().catch(console.error);

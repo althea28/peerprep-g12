@@ -151,9 +151,15 @@ export const initCollabService = (httpServer: HttpServer) => {
           );
           if (statusResponse.ok) {
             const status = await statusResponse.json() as { strikeCount: number };
-            if (status.strikeCount >= 3) {
+            if (status.strikeCount == 2 || status.strikeCount == 3) {
               socket.emit('early-termination-warning', {
-                message: `Warning: You have ${status.strikeCount} early terminations. You will be banned from matchmaking for 1 hour if you reach 5.`,
+                message: `Warning: This is early termination number ${status.strikeCount + 1}. You will be banned from matchmaking for 1 hour if you reach 5.`,
+                strikeCount: status.strikeCount,
+              });
+            }
+            if (status.strikeCount == 4) {
+              socket.emit('early-termination-warning', {
+                message: `Warning: This is your 5th early termination. You will be banned from joining the matchmaking queue for 1 hour.`,
                 strikeCount: status.strikeCount,
               });
             }
@@ -223,7 +229,10 @@ const notifyEarlyTermination = async (
   try {
     const response = await fetch(`${matchingServiceUrl}/internal/early-termination`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-internal-service-secret': process.env.INTERNAL_SERVICE_SECRET || '',
+      },
       body: JSON.stringify(payload),
     });
 
@@ -338,7 +347,10 @@ export const startRetryJob = () => {
         try {
           const response = await fetch(`${matchingServiceUrl}/internal/early-termination`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-internal-service-secret': process.env.INTERNAL_SERVICE_SECRET || '',
+            },
             body: JSON.stringify({
               userId: notification.user_id,
               sessionId: notification.session_id,
