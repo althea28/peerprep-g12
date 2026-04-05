@@ -12,7 +12,7 @@ services:
       - matching-service
       - user-service
       - question-service
-      - collab-service
+      - collaboration-service
 
   user-service:
     build: ./user-service
@@ -28,12 +28,35 @@ services:
     ports:
       - "3002:3002"
     env_file:
-    - ./matching-service/.env.docker
+      - ./matching-service/.env.docker
+    environment:
+      - USER_SERVICE_URL=http://user-service:3000
+      - QUESTION_SERVICE_URL=http://question-service:3001
+      - COLLABORATION_SERVICE_URL=http://collaboration-service:3003
+      - REDIS_URL=redis://redis:6379
     depends_on:
       - redis
       - user-service
       - question-service
       - collaboration-service
+
+  collaboration-service:
+    build: ./collaboration-service
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./collaboration-service/.env
+    environment:
+      - PORT=3003
+      - USER_SERVICE_URL=http://user-service:3000
+      - QUESTION_SERVICE_URL=http://question-service:3001
+      - MATCHING_SERVICE_URL=http://matching-service:3002
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+      - user-service
+      - question-service
 
   redis:
     image: redis:alpine

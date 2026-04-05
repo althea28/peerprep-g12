@@ -46,7 +46,11 @@ type MatchResponsePayload = {
   proposedMatch?: CandidateMatch;
 };
 
-const MATCHING_SERVER_URL = "http://localhost:3002";
+const MATCHING_SERVER_URL =
+  import.meta.env.VITE_MATCHING_SERVICE_URL || "http://localhost:3002";
+
+const COLLAB_SERVER_URL =
+  import.meta.env.VITE_COLLAB_SERVICE_URL || "http://localhost:3003";
 
 export default function CollabPage() {
   const socketRef = useRef<Socket | null>(null);

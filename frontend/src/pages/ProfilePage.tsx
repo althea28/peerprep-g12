@@ -4,6 +4,7 @@ import {
   getUserInfo,
   updateUsername,
   requestResetPassword,
+  checkUniqueUsername,
 } from "../services/userService";
 
 type UserProfile = {
@@ -20,6 +21,10 @@ export default function ProfilePage() {
 
   const [showUsernameEditor, setShowUsernameEditor] = useState(false);
   const [newUsername, setNewUsername] = useState("");
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
+    null,
+  );
   const [savingUsername, setSavingUsername] = useState(false);
   const [usernameMessage, setUsernameMessage] = useState("");
   const [usernameError, setUsernameError] = useState("");
@@ -63,6 +68,55 @@ export default function ProfilePage() {
 
   const usernameValidationError = validateUsername(newUsername);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!showUsernameEditor || !user) {
+      setUsernameAvailable(null);
+      setUsernameChecking(false);
+      return;
+    }
+
+    const trimmedUsername = newUsername.trim();
+
+    if (!trimmedUsername || usernameValidationError) {
+      setUsernameAvailable(null);
+      setUsernameChecking(false);
+      return;
+    }
+
+    if (trimmedUsername === user.username) {
+      setUsernameAvailable(null);
+      setUsernameChecking(false);
+      return;
+    }
+
+    setUsernameChecking(true);
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const result = await checkUniqueUsername(trimmedUsername);
+
+        if (!cancelled) {
+          setUsernameAvailable(result.available);
+        }
+      } catch {
+        if (!cancelled) {
+          setUsernameAvailable(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setUsernameChecking(false);
+        }
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [newUsername, usernameValidationError, showUsernameEditor, user]);
+
   async function handleUpdateUsername(e: React.FormEvent) {
     e.preventDefault();
     setUsernameMessage("");
@@ -72,6 +126,11 @@ export default function ProfilePage() {
 
     if (usernameValidationError) {
       setUsernameError(usernameValidationError);
+      return;
+    }
+
+    if (usernameAvailable === false) {
+      setUsernameError("Username already taken.");
       return;
     }
 
@@ -228,6 +287,7 @@ export default function ProfilePage() {
                     setNewUsername(e.target.value);
                     setUsernameError("");
                     setUsernameMessage("");
+                    setUsernameAvailable(null);
                   }}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 />
@@ -237,11 +297,45 @@ export default function ProfilePage() {
                       ✗ {usernameValidationError}
                     </span>
                   )}
-                  {newUsername && !usernameValidationError && (
-                    <span className="text-green-600">
-                      ✓ Valid username format
-                    </span>
-                  )}
+
+                  {newUsername &&
+                    !usernameValidationError &&
+                    user &&
+                    newUsername.trim() === user.username && (
+                      <span className="text-slate-500">Current username</span>
+                    )}
+
+                  {newUsername &&
+                    !usernameValidationError &&
+                    user &&
+                    newUsername.trim() !== user.username &&
+                    usernameChecking && (
+                      <span className="text-slate-500">
+                        Checking availability...
+                      </span>
+                    )}
+
+                  {newUsername &&
+                    !usernameValidationError &&
+                    user &&
+                    newUsername.trim() !== user.username &&
+                    !usernameChecking &&
+                    usernameAvailable === true && (
+                      <span className="text-green-600">
+                        ✓ Username is available
+                      </span>
+                    )}
+
+                  {newUsername &&
+                    !usernameValidationError &&
+                    user &&
+                    newUsername.trim() !== user.username &&
+                    !usernameChecking &&
+                    usernameAvailable === false && (
+                      <span className="text-red-500">
+                        ✗ Username already taken
+                      </span>
+                    )}
                 </div>
               </div>
 
@@ -254,7 +348,12 @@ export default function ProfilePage() {
 
               <button
                 type="submit"
-                disabled={savingUsername || !!usernameValidationError}
+                disabled={
+                  savingUsername ||
+                  usernameChecking ||
+                  !!usernameValidationError ||
+                  usernameAvailable === false
+                }
                 className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {savingUsername ? "Saving..." : "Save Username"}
