@@ -25,6 +25,13 @@ const fetchQuestionFromService = async (topic: string, difficulty: string): Prom
 };
 
 export const createSession = async (dto: CreateSessionDTO): Promise<Session> => {
+  // check if either user already has an active session
+  const user1Active = await getActiveSessionByUserId(dto.user1_id);
+  const user2Active = await getActiveSessionByUserId(dto.user2_id);
+
+  if (user1Active) throw new Error(`User ${dto.user1_id} already has an active session`);
+  if (user2Active) throw new Error(`User ${dto.user2_id} already has an active session`);
+  
   const question_id = await fetchQuestionFromService(dto.topic, dto.difficulty);
 
   const newSession = {
