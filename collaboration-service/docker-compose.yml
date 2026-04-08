@@ -10,7 +10,6 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       - redis
     volumes:
