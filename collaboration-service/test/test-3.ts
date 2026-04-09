@@ -1,4 +1,4 @@
-//tests - idle warning after 15s, session ends after 10s grace, both users notified
+//tests - idle warning after 15s, session ends after 10s, both users notified
 import { io } from 'socket.io-client';
 
 const SESSION_ID = '68e42a0f-ac8f-42ef-9728-0cbb2ede52c4';
