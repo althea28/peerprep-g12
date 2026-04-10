@@ -188,9 +188,18 @@ export default function CollabPage() {
           break;
 
         case "match_timeout":
-          setState("error");
           setProposedMatch(null);
           setSessionId("");
+          setConfirmationChoice(null);
+          setCountdown(null);
+
+          if (
+            (payload.message || "").toLowerCase().includes("temporarily banned")
+          ) {
+            setState("banned");
+          } else {
+            setState("idle");
+          }
           break;
 
         case "unsuccessful_match":

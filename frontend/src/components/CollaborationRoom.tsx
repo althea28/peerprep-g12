@@ -265,12 +265,6 @@ export default function CollaborationRoom({
     });
   }
 
-  const description =
-    question.blocks
-      ?.filter((block) => block.block_type === "text")
-      .map((block) => block.content)
-      .join("\n\n") || "No question description available.";
-
   return (
     <div className="grid grid-cols-2 gap-6 h-[80vh]">
       <div className="bg-white rounded-xl shadow-sm p-6 overflow-auto">
@@ -291,9 +285,40 @@ export default function CollaborationRoom({
           </p>
         </div>
 
-        <pre className="whitespace-pre-wrap text-sm text-slate-700">
-          {description}
-        </pre>
+        <div className="space-y-4">
+          {question.blocks && question.blocks.length > 0 ? (
+            question.blocks.map((block, index) => {
+              if (block.block_type === "text") {
+                return (
+                  <pre
+                    key={index}
+                    className="whitespace-pre-wrap text-sm text-slate-700 font-sans"
+                  >
+                    {block.content}
+                  </pre>
+                );
+              }
+
+              if (block.block_type === "image") {
+                return (
+                  <div key={index} className="space-y-2">
+                    <img
+                      src={block.content}
+                      alt={`Question image ${index + 1}`}
+                      className="max-w-full rounded-lg border"
+                    />
+                  </div>
+                );
+              }
+
+              return null;
+            })
+          ) : (
+            <p className="text-sm text-slate-500">
+              No question description available.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col">
