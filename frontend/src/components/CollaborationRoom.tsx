@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import * as Y from "yjs";
+import Editor from "@monaco-editor/react";
 import type { Session } from "../services/collaborationService";
 import type { Question } from "../services/questionService";
 
@@ -19,7 +20,7 @@ export default function CollaborationRoom({
   session,
   question,
   userId,
-  username,
+  username: currentUsername,
   onLeave,
 }: Props) {
   const socketRef = useRef<Socket | null>(null);
@@ -32,8 +33,8 @@ export default function CollaborationRoom({
 
   const [code, setCode] = useState("");
   const [roomMessage, setRoomMessage] = useState("");
-  const [partnerJoined, setPartnerJoined] = useState(false);
-  const [partnerDisconnected, setPartnerDisconnected] = useState(false);
+  const [partnerName, setPartnerName] = useState<string>("");
+  const [partnerConnected, setPartnerConnected] = useState(false);
   const [idleWarning, setIdleWarning] = useState("");
   const [sessionEndedMessage, setSessionEndedMessage] = useState("");
   const [earlyTerminationWarning, setEarlyTerminationWarning] = useState("");
@@ -92,12 +93,12 @@ export default function CollaborationRoom({
       socket.emit("join-session", {
         sessionId: session.session_id,
         userId,
-        username,
+        username: currentUsername,
       });
     });
 
     socket.on("session-joined", () => {
-      setRoomMessage("Joined collaboration room.");
+      setRoomMessage("");
 
       initialSyncResolvedRef.current = false;
 
@@ -122,10 +123,12 @@ export default function CollaborationRoom({
       }, 500);
     });
 
-    socket.on("partner-already-present", () => {
-      setPartnerJoined(true);
-      setPartnerDisconnected(false);
-      setRoomMessage("Your partner is already in the room.");
+    socket.on("partner-already-present", ({ username }: { username?: string}) => {
+      if (username && username !== currentUsername) {
+        setPartnerName(username);
+      }
+      setPartnerConnected(true);
+      setRoomMessage("");
     });
 
     socket.on("code-restored", ({ code }: { code: string }) => {
@@ -166,15 +169,19 @@ export default function CollaborationRoom({
     });
 
     socket.on("user-joined", ({ username }: { username: string }) => {
-      setPartnerJoined(true);
-      setPartnerDisconnected(false);
-      setRoomMessage(`${username} joined the room.`);
+      if (username !== currentUsername) {
+        setPartnerName(username);
+      }
+      setPartnerConnected(true);
+      setRoomMessage("");
     });
 
-    socket.on("user-disconnected", ({ userId: disconnectedUserId }) => {
-      setPartnerDisconnected(true);
-      setPartnerJoined(false);
-      setRoomMessage(`User ${disconnectedUserId} disconnected.`);
+    socket.on("user-disconnected", ({ username }: { username: string }) => {
+      if (username && username !== currentUsername) {
+        setPartnerName(username);
+      }
+      setPartnerConnected(false);
+      setRoomMessage("");
     });
 
     socket.on("idle-warning", ({ message }: { message: string }) => {
@@ -228,7 +235,20 @@ export default function CollaborationRoom({
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [session.session_id, userId, username]);
+  }, [session.session_id, userId, currentUsername]);
+
+  function getEditorLanguage(language: string) {
+    switch (language.toLowerCase()) {
+      case "javascript":
+        return "javascript";
+      case "python":
+        return "python";
+      case "java":
+        return "java";
+      default:
+        return "plaintext";
+    }
+  }
 
   function handleCodeChange(nextValue: string) {
     const ydoc = ydocRef.current;
@@ -265,14 +285,8 @@ export default function CollaborationRoom({
     });
   }
 
-  const description =
-    question.blocks
-      ?.filter((block) => block.block_type === "text")
-      .map((block) => block.content)
-      .join("\n\n") || "No question description available.";
-
   return (
-    <div className="grid grid-cols-2 gap-6 h-[80vh]">
+    <div className="grid grid-cols-2 gap-6 h-[80vh] min-h-0">
       <div className="bg-white rounded-xl shadow-sm p-6 overflow-auto">
         <h2 className="text-lg font-semibold mb-3">{question.title}</h2>
 
@@ -291,12 +305,43 @@ export default function CollaborationRoom({
           </p>
         </div>
 
-        <pre className="whitespace-pre-wrap text-sm text-slate-700">
-          {description}
-        </pre>
+        <div className="space-y-4">
+          {question.blocks && question.blocks.length > 0 ? (
+            question.blocks.map((block, index) => {
+              if (block.block_type === "text") {
+                return (
+                  <pre
+                    key={index}
+                    className="whitespace-pre-wrap text-sm text-slate-700 font-sans"
+                  >
+                    {block.content}
+                  </pre>
+                );
+              }
+
+              if (block.block_type === "image") {
+                return (
+                  <div key={index} className="space-y-2">
+                    <img
+                      src={block.content}
+                      alt={`Question image ${index + 1}`}
+                      className="max-w-full rounded-lg border"
+                    />
+                  </div>
+                );
+              }
+
+              return null;
+            })
+          ) : (
+            <p className="text-sm text-slate-500">
+              No question description available.
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col">
+      <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col min-h-0">
         <h2 className="text-lg font-semibold mb-3">Code Editor</h2>
 
         {roomMessage && (
@@ -327,13 +372,28 @@ export default function CollaborationRoom({
           </p>
         )}
 
-        <textarea
-          value={code}
-          onChange={(e) => handleCodeChange(e.target.value)}
-          disabled={!!sessionEndedMessage}
-          className="flex-1 border rounded-lg p-3 font-mono text-sm"
-          placeholder="Write your solution here..."
-        />
+        <div className="flex-1 border rounded-lg overflow-hidden">
+          <Editor
+            height="100%"
+            language={getEditorLanguage(session.language)}
+            value={code}
+            onChange={(value) => handleCodeChange(value ?? "")}
+            theme="vs-light"
+            options={{
+              readOnly: !!sessionEndedMessage,
+              minimap: { enabled: false },
+              fontSize: 14,
+              automaticLayout: true,
+              scrollBeyondLastLine: false,
+              wordWrap: "on",
+              lineNumbers: "on",
+              tabSize: 2,
+              insertSpaces: true,
+              bracketPairColorization: { enabled: true },
+              padding: { top: 12 },
+            }}
+          />
+        </div>
 
         <div className="mt-4 flex gap-3">
           {!sessionEndedMessage ? (
@@ -353,9 +413,22 @@ export default function CollaborationRoom({
           )}
         </div>
 
-        <div className="mt-3 text-xs text-slate-500">
-          <p>Partner joined: {partnerJoined ? "Yes" : "Not yet"}</p>
-          <p>Partner disconnected: {partnerDisconnected ? "Yes" : "No"}</p>
+        <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+          <span
+            className={`inline-block h-2.5 w-2.5 rounded-full ${
+              partnerConnected
+                ? "bg-green-500"
+                : partnerName
+                  ? "bg-red-500"
+                  : "bg-slate-300"
+            }`}
+          />
+          <span>
+            Partner:{" "}
+            <strong>
+              {partnerName || "Waiting for partner..."}
+            </strong>
+          </span>
         </div>
       </div>
     </div>

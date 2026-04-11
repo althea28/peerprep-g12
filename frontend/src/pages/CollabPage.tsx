@@ -55,9 +55,11 @@ const MATCHING_SERVER_URL =
 export default function CollabPage() {
   const socketRef = useRef<Socket | null>(null);
   const suppressNextDisconnectMessageRef = useRef(false);
+  const disconnectWarningTimeoutRef = useRef<number | null>(null);
 
   const [state, setState] = useState<CollabState>("connecting");
   const [isConnected, setIsConnected] = useState(false);
+  const [showDisconnectedWarning, setShowDisconnectedWarning] = useState(false);
 
   const [userId, setUserId] = useState("");
   const [username, setUsername] = useState("");
@@ -113,6 +115,13 @@ export default function CollabPage() {
 
     socket.on("connect", () => {
       if (mountedRef && !mountedRef.current) return;
+
+      if (disconnectWarningTimeoutRef.current !== null) {
+        clearTimeout(disconnectWarningTimeoutRef.current);
+        disconnectWarningTimeoutRef.current = null;
+      }
+
+      setShowDisconnectedWarning(false);
       setIsConnected(true);
       setState("idle");
       setMessage("");
@@ -129,7 +138,15 @@ export default function CollabPage() {
         return;
       }
 
-      setMessage("Disconnected from matching service.");
+      if (disconnectWarningTimeoutRef.current !== null) {
+        clearTimeout(disconnectWarningTimeoutRef.current);
+      }
+
+      disconnectWarningTimeoutRef.current = window.setTimeout(() => {
+        setShowDisconnectedWarning(true);
+        setMessage("Disconnected from matching service.");
+        disconnectWarningTimeoutRef.current = null;
+      }, 1500);
     });
 
     socket.on("connect_error", (error) => {
@@ -188,9 +205,18 @@ export default function CollabPage() {
           break;
 
         case "match_timeout":
-          setState("error");
           setProposedMatch(null);
           setSessionId("");
+          setConfirmationChoice(null);
+          setCountdown(null);
+
+          if (
+            (payload.message || "").toLowerCase().includes("temporarily banned")
+          ) {
+            setState("banned");
+          } else {
+            setState("idle");
+          }
           break;
 
         case "unsuccessful_match":
@@ -278,6 +304,10 @@ export default function CollabPage() {
 
     return () => {
       mountedRef.current = false;
+      if (disconnectWarningTimeoutRef.current !== null) {
+        clearTimeout(disconnectWarningTimeoutRef.current);
+        disconnectWarningTimeoutRef.current = null;
+      }
       disconnectMatchingSocket(true);
     };
   }, []);
@@ -343,7 +373,7 @@ export default function CollabPage() {
   }
 
   function handleLeaveSession() {
-    setState("idle");
+    setState("connecting");
     setSessionId("");
     setSession(null);
     setQuestion(null);
@@ -351,11 +381,13 @@ export default function CollabPage() {
     setMessage("");
     setCountdown(null);
     setConfirmationChoice(null);
+    setShowDisconnectedWarning(false);
 
     if (!socketRef.current || !socketRef.current.connected) {
       connectMatchingSocket();
     } else {
       setIsConnected(true);
+      setState("idle");
     }
   }
 
@@ -408,7 +440,7 @@ export default function CollabPage() {
         <h1 className="text-2xl font-bold mb-6">Start Collaboration</h1>
 
         <div className="bg-white p-6 rounded-xl shadow-sm space-y-4">
-          {!isConnected && (
+          {showDisconnectedWarning && !isConnected && (
             <p className="text-sm text-red-500">
               Not connected to matching service.
             </p>
