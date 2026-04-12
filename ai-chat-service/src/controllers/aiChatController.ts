@@ -6,6 +6,7 @@ import { fetchSessionById } from "../services/collaborationService";
 import { parseQuestion } from "../services/questionService";
 import { getFormattedChatHistory } from "../services/chatHistoryService";
 import { checkAndIncrementPromptCount } from "../services/promptLimitService";
+import { persistPromptAndResponse } from "../services/messagePersistService";
 
 const logger = createLogger("AiChatController");
 
@@ -110,6 +111,18 @@ export async function sendPrompt(req: Request, res: Response): Promise<void> {
 			sessionId,
 			userId,
 			promptPayload: craftedPrompt,
+		});
+
+		// Persist user prompt and AI response asynchronously
+		void persistPromptAndResponse(sessionId, userId, prompt, aiResponse).catch((persistError) => {
+			logger.error("Failed to persist AI chat exchange", {
+				sessionId,
+				userId,
+				error:
+					persistError instanceof Error
+						? persistError.message
+						: "Unknown error",
+			});
 		});
 
 		res.status(200).json({ response: aiResponse });
