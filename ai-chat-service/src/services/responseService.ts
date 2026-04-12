@@ -1,6 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { PromptPayload } from "./promptService";
 import { createLogger } from "../utils/logger";
+import { getAnthropicClient } from "../config/anthropic";
 
 const logger = createLogger("AiChatResponseService");
 
@@ -10,26 +10,11 @@ type GenerateAiResponseInput = {
   promptPayload: PromptPayload;
 };
 
-let anthropicClient: Anthropic | null = null;
-
-function getAnthropicClient(apiKey: string): Anthropic {
-  if (!anthropicClient) {
-    anthropicClient = new Anthropic({ apiKey });
-  }
-  return anthropicClient;
-}
-
 export async function generateAiResponse(
   input: GenerateAiResponseInput
 ): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    logger.error("Anthropic API key is not configured", { sessionId: input.sessionId, userId: input.userId });
-    throw new Error("ANTHROPIC_API_KEY is not configured");
-  }
-
   try {
-    const client = getAnthropicClient(apiKey);
+    const client = getAnthropicClient();
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
@@ -60,6 +45,16 @@ export async function generateAiResponse(
 
     return firstText.text;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "ANTHROPIC_API_KEY is not configured"
+    ) {
+      logger.error("Anthropic API key is not configured", {
+        sessionId: input.sessionId,
+        userId: input.userId,
+      });
+    }
+
     logger.error("Failed to get AI response from Anthropic", {
       sessionId: input.sessionId,
       userId: input.userId,
