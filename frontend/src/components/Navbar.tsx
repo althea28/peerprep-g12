@@ -34,6 +34,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const activeStyle = "bg-indigo-600 text-white";
   const inactiveStyle = "text-slate-700 hover:bg-slate-200";
@@ -57,6 +58,7 @@ export default function Navbar() {
     navigate("/login");
   }
   return (
+    <>
     <aside
       className={`h-screen shrink-0 border-r border-slate-200 bg-white shadow-sm transition-all duration-300 ${
         collapsed ? "w-20 p-3" : "w-60 p-6"
@@ -114,7 +116,7 @@ export default function Navbar() {
 
       <div className="mt-auto pt-6">
         <button
-          onClick={handleLogout}
+          onClick={() => setShowLogoutConfirm(true)}
           title={collapsed ? "Logout" : undefined}
           className={`w-full rounded-xl border border-slate-300 text-slate-700 transition hover:bg-slate-100 ${
             collapsed
@@ -127,5 +129,37 @@ export default function Navbar() {
         </button>
       </div>
     </aside>
+    {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-800">
+              Log out?
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to log out of PeerPrep?
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full rounded-xl bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+              >
+                Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
