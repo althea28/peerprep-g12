@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { AIExplanationType } from "../services/aiExplanationsService";
 
 type TabType = "Partner Chat" | "AI Chat" | "AI Explanations";
@@ -142,9 +144,11 @@ export default function Chat({
                     </div>
                   </div>
                 ) : (
-                  <p key={index} className="text-slate-700 whitespace-pre-wrap">
-                    {message.content}
-                  </p>
+                  <div key={index} className="prose prose-slate max-w-none text-slate-700">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
                 )
               ))
             )}
@@ -250,7 +254,15 @@ export default function Chat({
           <div className="flex-1 overflow-y-auto border rounded p-3 text-sm text-slate-700 whitespace-pre-wrap">
             {loading
               ? "Thinking..."
-              : aiResponse || "Ask for help to see AI explanation."}
+              : aiResponse ? (
+                <div className="prose prose-slate max-w-none text-slate-700">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {aiResponse}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                "Ask for help to see AI explanation."
+              )}
           </div>
         </>
       )}
