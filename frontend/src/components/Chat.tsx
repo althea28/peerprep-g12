@@ -6,6 +6,7 @@ Author review: Provide instructions for UI design, adjusted output where necessa
 */
 
 import { useEffect, useRef, useState } from "react";
+import { AcademicCapIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { AIExplanationType } from "../services/aiExplanationsService";
@@ -170,7 +171,10 @@ export default function Chat({
             {aiChatHistoryLoading ? (
               <p className="text-slate-500">Loading chat history...</p>
             ) : aiChatMessages.length === 0 ? (
-              <p className="text-slate-500">Send a prompt to start chatting with AI.</p>
+              <div className="flex h-full min-h-[180px] flex-col items-center justify-center gap-3 text-center text-slate-500">
+                <AcademicCapIcon className="h-10 w-10 text-black" aria-hidden="true" />
+                <p className="text-lg font-normal text-slate-700">How can I help?</p>
+              </div>
             ) : (
               aiChatMessages.map((message, index) => (
                 message.role === "user" ? (
@@ -225,25 +229,7 @@ export default function Chat({
               }`}
               aria-label="Send AI chat prompt"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="h-4 w-4"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M22 2 11 13"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="m22 2-7 20-4-9-9-4 20-7Z"
-                />
-              </svg>
+              <PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </>

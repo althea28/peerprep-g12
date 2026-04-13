@@ -29,13 +29,12 @@ services:
     build: ./matching-service
     ports:
       - "3002:3002"
-    env_file:
-      - ./matching-service/.env.docker
     environment:
       - USER_SERVICE_URL=http://user-service:3000
       - QUESTION_SERVICE_URL=http://question-service:3001
       - COLLABORATION_SERVICE_URL=http://collaboration-service:3003
       - REDIS_URL=redis://redis:6379
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
     depends_on:
       - redis
       - user-service
@@ -46,15 +45,15 @@ services:
     build: ./collaboration-service
     ports:
       - "3003:3003"
-    env_file:
-      - ./collaboration-service/.env
     environment:
-      - PORT=3003
       - USER_SERVICE_URL=http://user-service:3000
       - QUESTION_SERVICE_URL=http://question-service:3001
       - MATCHING_SERVICE_URL=http://matching-service:3002
       - RABBITMQ_URL=amqp://rabbitmq:5672
       - REDIS_URL=redis://redis:6379
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
     depends_on:
       - redis
       - rabbitmq
@@ -75,11 +74,11 @@ services:
     build: ./question-service
     ports: 
       - "3001:3001"
-    env_file:
-      - ./question-service/.env
     environment: 
-      - PORT=3001
       - USER_SERVICE_URL=http://user-service:3000
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
     depends_on:
       - user-service
   
