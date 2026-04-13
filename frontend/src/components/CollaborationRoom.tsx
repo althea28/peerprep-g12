@@ -45,6 +45,7 @@ export default function CollaborationRoom({
   const [aiResponse, setAIResponse] = useState("");
   const [remainingRequests, setRemainingRequests] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   type TabType = "Partner Chat" | "AI Chat" | "AI Explanations";
   const [activeTab, setActiveTab] = useState<TabType>("Partner Chat");
@@ -348,7 +349,11 @@ export default function CollaborationRoom({
 }
 
   return (
-    <div className="grid grid-cols-3 gap-6 h-[80vh] min-h-0">
+    <div
+      className={`grid gap-6 h-[80vh] min-h-0 ${
+        isChatOpen ? "grid-cols-3" : "grid-cols-2"
+      }`}
+    >
       <div className="bg-white rounded-xl shadow-sm p-6 overflow-auto">
         <h2 className="text-lg font-semibold mb-3">{question.title}</h2>
 
@@ -404,7 +409,34 @@ export default function CollaborationRoom({
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col min-h-0">
-        <h2 className="text-lg font-semibold mb-3">Code Editor</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Code Editor</h2>
+          <button
+            onClick={() => setIsChatOpen((prev) => !prev)}
+            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+              isChatOpen
+                ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"
+            }`}
+            aria-label="Toggle chat panel"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="h-4 w-4"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7 8h10M7 12h6m-9 9 3.6-3H20a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h.4L4 21Z"
+              />
+            </svg>
+            {isChatOpen ? "Hide chat" : "Need help?"}
+          </button>
+        </div>
 
         {roomMessage && (
           <p className="mb-2 text-sm text-slate-600">{roomMessage}</p>
@@ -494,14 +526,16 @@ export default function CollaborationRoom({
         </div>
       </div>
 
-      <Chat
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        remainingRequests={remainingRequests}
-        loading={loading}
-        handleAIRequest={handleAIRequest}
-        aiResponse={aiResponse}
-      />
+      {isChatOpen && (
+        <Chat
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          remainingRequests={remainingRequests}
+          loading={loading}
+          handleAIRequest={handleAIRequest}
+          aiResponse={aiResponse}
+        />
+      )}
     </div>
   );
 }
