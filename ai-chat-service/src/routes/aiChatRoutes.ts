@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { getPromptCount, sendPrompt } from "../controllers/aiChatController";
+import {
+	getChatHistory,
+	getPromptCount,
+	sendPrompt,
+} from "../controllers/aiChatController";
 
 const router = Router();
 
@@ -8,5 +12,8 @@ router.post('/sessions/:sessionId/chat', sendPrompt);
 
 // GET /sessions/:sessionId/promptCount - get remaining prompts for the user for that session
 router.get('/sessions/:sessionId/promptCount', getPromptCount);
+
+// GET /sessions/:sessionId/chatHistory - get persisted AI chat history for the session/user
+router.get('/sessions/:sessionId/chatHistory', getChatHistory);
 
 export default router;

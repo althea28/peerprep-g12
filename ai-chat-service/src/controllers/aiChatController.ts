@@ -22,6 +22,10 @@ type PromptCountQuery = {
   userId?: string;
 };
 
+type ChatHistoryQuery = {
+	userId?: string;
+};
+
 async function validateSessionAccess(
   sessionId: string,
   userId: string,
@@ -203,6 +207,51 @@ export async function getPromptCount(req: Request, res: Response): Promise<void>
 			error: error instanceof Error ? error.message : "Unknown error",
 		});
 		res.status(502).json({ error: "Failed to get prompt count" });
+	}
+}
+
+export async function getChatHistory(req: Request, res: Response): Promise<void> {
+  const { sessionId } = req.params;
+  const { userId } = req.query as ChatHistoryQuery;
+  const authorization = req.headers.authorization;
+
+  if (!sessionId) {
+    logger.error("Missing sessionId in URL params");
+		res.status(400).json({ error: "sessionId is required in URL params" });
+		return;
+  }
+
+	if (!userId) {
+		logger.error("Missing userId in query params");
+		res.status(400).json({ error: "userId is required in query params" });
+		return;
+	}
+
+	if (!authorization || !authorization.startsWith("Bearer ")) {
+		logger.error("Missing or invalid authorization header");
+		res.status(401).json({ error: "Missing or invalid authorization header" });
+		return;
+	}
+
+	try {
+		const session = await validateSessionAccess(
+			sessionId,
+			userId,
+			authorization,
+			res
+		);
+		if (!session) return;
+
+		const chatHistory = await getFormattedChatHistory(sessionId, userId);
+
+		res.status(200).json({ messages: chatHistory });
+	} catch (error) {
+		logger.error("Failed to fetch AI chat history", {
+			sessionId,
+			userId,
+			error: error instanceof Error ? error.message : "Unknown error",
+		});
+		res.status(502).json({ error: "Failed to get chat history" });
 	}
 }
 
