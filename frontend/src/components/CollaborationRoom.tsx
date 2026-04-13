@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import * as Y from "yjs";
 import Editor from "@monaco-editor/react";
@@ -7,6 +7,7 @@ import type { Session } from "../services/collaborationService";
 import type { Question } from "../services/questionService";
 import { getAiExplanation, getRemainingRequests } from "../services/aiExplanationsService";
 import type { AIExplanationType } from "../services/aiExplanationsService";
+import { getRemainingPromptCount } from "../services/aiChatService";
 
 const COLLAB_SERVER_URL =
   import.meta.env.VITE_COLLAB_SERVICE_URL || "http://localhost:3003";
@@ -44,6 +45,8 @@ export default function CollaborationRoom({
   const [canRejoinQueue, setCanRejoinQueue] = useState(false);
   const [aiResponse, setAIResponse] = useState("");
   const [remainingRequests, setRemainingRequests] = useState<number | null>(null);
+  const [remainingPrompts, setRemainingPrompts] = useState<number | null>(null);
+  const [promptCountLoading, setPromptCountLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
@@ -263,6 +266,51 @@ export default function CollaborationRoom({
 
     fetchRemaining();
   }, [session.session_id, userId]);
+
+  // Poll ai chat service backend to get remaining prompt count every 4 seconds
+  const refreshRemainingPrompts = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) {
+        setPromptCountLoading(true);
+      }
+
+      try {
+        const data = await getRemainingPromptCount(
+          session.session_id,
+          userId,
+        );
+        setRemainingPrompts(data.remainingRequests);
+      } catch (err) {
+        console.error("Failed to fetch remaining prompts", err);
+        setRemainingPrompts(null);
+      } finally {
+        if (showLoading) {
+          setPromptCountLoading(false);
+        }
+      }
+    },
+    [session.session_id, userId],
+  );
+
+  useEffect(() => {
+    void refreshRemainingPrompts(true);
+  }, [refreshRemainingPrompts]);
+
+  useEffect(() => {
+    if (!isChatOpen || activeTab !== "AI Chat") {
+      return;
+    }
+
+    void refreshRemainingPrompts(false);
+
+    const intervalId = window.setInterval(() => {
+      void refreshRemainingPrompts(false);
+    }, 4000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [isChatOpen, activeTab, refreshRemainingPrompts]);
 
   function getEditorLanguage(language: string) {
     switch (language.toLowerCase()) {
@@ -530,6 +578,11 @@ export default function CollaborationRoom({
         <Chat
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          remainingPrompts={remainingPrompts}
+          promptCountLoading={promptCountLoading}
+          onAiChatMessageSent={() => {
+            void refreshRemainingPrompts(false);
+          }}
           remainingRequests={remainingRequests}
           loading={loading}
           handleAIRequest={handleAIRequest}

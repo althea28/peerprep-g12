@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AIExplanationType } from "../services/aiExplanationsService";
 
 type TabType = "Partner Chat" | "AI Chat" | "AI Explanations";
@@ -6,6 +6,9 @@ type TabType = "Partner Chat" | "AI Chat" | "AI Explanations";
 type Props = {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  remainingPrompts: number | null;
+  promptCountLoading: boolean;
+  onAiChatMessageSent: () => void;
   remainingRequests: number | null;
   loading: boolean;
   handleAIRequest: (type: AIExplanationType) => void;
@@ -15,15 +18,31 @@ type Props = {
 export default function Chat({
   activeTab,
   setActiveTab,
+  remainingPrompts,
+  promptCountLoading,
+  onAiChatMessageSent,
   remainingRequests,
   loading,
   handleAIRequest,
   aiResponse,
 }: Props) {
   const MAX_PROMPTS = 15;
-  const [promptsLeft, setPromptsLeft] = useState(MAX_PROMPTS);
+  const [promptsLeft, setPromptsLeft] = useState<number>(MAX_PROMPTS);
+  const [isUsingBackendCount, setIsUsingBackendCount] = useState(false);
   const [aiChatInput, setAiChatInput] = useState("");
   const [aiChatMessages, setAiChatMessages] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (typeof remainingPrompts === "number") {
+      setPromptsLeft(remainingPrompts);
+      setIsUsingBackendCount(true);
+      return;
+    }
+
+    if (!promptCountLoading) {
+      setIsUsingBackendCount(false);
+    }
+  }, [remainingPrompts, promptCountLoading]);
 
   function sendAiChatMessage() {
     const trimmed = aiChatInput.trim();
@@ -31,7 +50,12 @@ export default function Chat({
 
     setAiChatMessages((prev) => [...prev, trimmed]);
     setAiChatInput("");
-    setPromptsLeft((prev) => Math.max(0, prev - 1));
+    // Fallback for prompt count in case backend count not avail
+    if (!isUsingBackendCount) {
+      setPromptsLeft((prev) => Math.max(0, prev - 1));
+    }
+
+    onAiChatMessageSent();
   }
 
   return (
@@ -77,6 +101,8 @@ export default function Chat({
         <>
           <div className="text-sm text-gray-500 mb-2">
             {`Prompts left: ${promptsLeft} / ${MAX_PROMPTS}`}
+            {promptCountLoading && " (syncing...)"}
+            {!promptCountLoading && !isUsingBackendCount && " (estimated)"}
           </div>
 
           <div className="flex-1 overflow-y-auto border rounded p-3 text-sm text-slate-700 space-y-2">
