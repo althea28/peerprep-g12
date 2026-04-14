@@ -124,6 +124,7 @@ export default function CollabPage() {
   const socketRef = useRef<Socket | null>(null);
   const suppressNextDisconnectMessageRef = useRef(false);
   const disconnectWarningTimeoutRef = useRef<number | null>(null);
+  const pendingRequeueRef = useRef(false);
 
   const [state, setState] = useState<CollabState>("idle");
   const [isBootstrapping, setIsBootstrapping] = useState(true);
@@ -193,9 +194,27 @@ export default function CollabPage() {
 
       setShowDisconnectedWarning(false);
       setIsConnected(true);
+      console.log("Connected to matching service:", socket.id);
+
+      if (pendingRequeueRef.current) {
+        pendingRequeueRef.current = false;
+
+        socket.emit("match_request", {
+          userId,
+          criteria: {
+            topic,
+            difficulty,
+            language,
+          },
+        });
+
+        setState("waiting");
+        setMessage("Rejoining matching queue...");
+        return;
+      }
+
       setState("idle");
       setMessage("");
-      console.log("Connected to matching service:", socket.id);
     });
 
     socket.on("disconnect", (reason) => {
@@ -463,21 +482,42 @@ export default function CollabPage() {
     setConfirmationChoice(null);
   }
 
-  function handleLeaveSession() {
+  function handleLeaveSession(options?: { rejoinQueue?: boolean }) {
+    const shouldRejoinQueue = !!options?.rejoinQueue;
+
     setSessionId("");
     setSession(null);
     setQuestion(null);
     setProposedMatch(null);
-    setMessage("");
     setCountdown(null);
+    setReturnCountdown(null);
     setConfirmationChoice(null);
     setShowDisconnectedWarning(false);
-    setState("idle");
+
+    if (shouldRejoinQueue) {
+      pendingRequeueRef.current = true;
+      setMessage("Rejoining matching queue...");
+    } else {
+      pendingRequeueRef.current = false;
+      setMessage("");
+      setState("idle");
+    }
 
     if (!socketRef.current || !socketRef.current.connected) {
       connectMatchingSocket();
+    } else if (shouldRejoinQueue) {
+      socketRef.current.emit("match_request", {
+        userId,
+        criteria: {
+          topic,
+          difficulty,
+          language,
+        },
+      });
+
+      pendingRequeueRef.current = false;
+      setState("waiting");
     } else {
-      setIsConnected(true);
       setState("idle");
     }
   }

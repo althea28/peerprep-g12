@@ -22,7 +22,7 @@ type Props = {
   question: Question;
   userId: string;
   username: string;
-  onLeave: () => void;
+  onLeave: (options?: { rejoinQueue?: boolean }) => void;
 };
 
 type AiChatMessage = {
@@ -606,9 +606,24 @@ export default function CollaborationRoom({
             >
               End Session
             </button>
+          ) : canRejoinQueue ? (
+            <>
+              <button
+                onClick={() => onLeave({ rejoinQueue: true })}
+                className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700"
+              >
+                Rejoin Queue
+              </button>
+              <button
+                onClick={() => onLeave()}
+                className="border border-slate-300 text-slate-700 py-2 px-4 rounded-lg hover:bg-slate-50"
+              >
+                Back to Matching
+              </button>
+            </>
           ) : (
             <button
-              onClick={onLeave}
+              onClick={() => onLeave()}
               className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700"
             >
               Back to Matching
