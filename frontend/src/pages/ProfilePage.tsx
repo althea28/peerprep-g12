@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -159,12 +160,6 @@ export default function ProfilePage() {
   }
 
   async function handleDeleteAccount() {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete your account? This action cannot be undone.",
-    );
-
-    if (!confirmed) return;
-
     try {
       setDeletingAccount(true);
       setDeleteError("");
@@ -182,6 +177,7 @@ export default function ProfilePage() {
       }
     } finally {
       setDeletingAccount(false);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -204,27 +200,6 @@ export default function ProfilePage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="rounded-2xl bg-white p-6 shadow-md">
-          <p className="text-slate-600">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="p-6">
-        <div className="rounded-2xl bg-white p-6 shadow-md">
-          <h1 className="text-2xl font-bold text-slate-800">Profile</h1>
-          {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6">
       <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow-md">
@@ -233,21 +208,27 @@ export default function ProfilePage() {
           View your account details.
         </p>
 
+        {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
+
         <div className="mt-6 space-y-4 rounded-xl bg-slate-50 p-5">
           <div>
             <p className="text-sm text-slate-500">Username</p>
-            <p className="mt-1 font-medium text-slate-800">{user.username}</p>
+            <p className="mt-1 font-medium text-slate-800">
+              {user?.username ?? "—"}
+            </p>
           </div>
 
           <div>
             <p className="text-sm text-slate-500">Email</p>
-            <p className="mt-1 font-medium text-slate-800">{user.email}</p>
+            <p className="mt-1 font-medium text-slate-800">
+              {user?.email ?? "—"}
+            </p>
           </div>
 
           <div>
             <p className="text-sm text-slate-500">Role</p>
             <p className="mt-1 font-medium text-slate-800">
-              {user.isAdmin ? "Administrator" : "User"}
+              {user ? (user.isAdmin ? "Administrator" : "User") : "—"}
             </p>
           </div>
         </div>
@@ -266,7 +247,7 @@ export default function ProfilePage() {
                 setShowUsernameEditor((prev) => !prev);
                 setUsernameError("");
                 setUsernameMessage("");
-                setNewUsername(user.username);
+                setNewUsername(user?.username ?? "");
               }}
               className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
             >
@@ -398,7 +379,7 @@ export default function ProfilePage() {
 
           <button
             type="button"
-            onClick={handleDeleteAccount}
+            onClick={() => setShowDeleteConfirm(true)}
             disabled={deletingAccount}
             className="mt-4 rounded-lg bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
           >
@@ -406,6 +387,40 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-800">
+              Delete account?
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to delete your account? This action cannot
+              be undone.
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deletingAccount}
+                className="w-full rounded-xl border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deletingAccount}
+                className="w-full rounded-xl bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingAccount ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

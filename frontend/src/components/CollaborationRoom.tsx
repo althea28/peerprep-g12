@@ -22,7 +22,7 @@ type Props = {
   question: Question;
   userId: string;
   username: string;
-  onLeave: () => void;
+  onLeave: (options?: { rejoinQueue?: boolean }) => void;
 };
 
 type AiChatMessage = {
@@ -50,7 +50,10 @@ export default function CollaborationRoom({
   const [partnerName, setPartnerName] = useState<string>("");
   const [partnerConnected, setPartnerConnected] = useState(false);
   const [idleWarning, setIdleWarning] = useState("");
+  const [idleCountdown, setIdleCountdown] = useState<number | null>(null);
+  const idleCountdownIntervalRef = useRef<number | null>(null);
   const [sessionEndedMessage, setSessionEndedMessage] = useState("");
+  const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [earlyTerminationWarning, setEarlyTerminationWarning] = useState("");
   const [canRejoinQueue, setCanRejoinQueue] = useState(false);
   const [aiResponse, setAIResponse] = useState("");
@@ -79,6 +82,7 @@ export default function CollaborationRoom({
 
     const handleYTextChange = () => {
       setCode(ytext.toString());
+      clearIdleWarningState();
     };
 
     ytext.observe(handleYTextChange);
@@ -211,13 +215,28 @@ export default function CollaborationRoom({
     });
 
     socket.on("idle-warning", ({ message }: { message: string }) => {
+      clearIdleWarningState();
       setIdleWarning(message);
+      setIdleCountdown(30);
+
+      idleCountdownIntervalRef.current = window.setInterval(() => {
+        setIdleCountdown((prev) => {
+          if (prev === null || prev <= 1) {
+            if (idleCountdownIntervalRef.current !== null) {
+              clearInterval(idleCountdownIntervalRef.current);
+              idleCountdownIntervalRef.current = null;
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     });
 
     socket.on(
       "session-ended",
       ({ message }: { message: string; endedBy?: string }) => {
-        setIdleWarning("");
+        clearIdleWarningState();
         setSessionEndedMessage(message || "Session ended.");
       },
     );
@@ -235,6 +254,7 @@ export default function CollaborationRoom({
     );
 
     socket.on("yjs-update", ({ update }: { update: number[] }) => {
+      clearIdleWarningState();
       const incoming = new Uint8Array(update);
       Y.applyUpdate(ydoc, incoming, "remote");
     });
@@ -244,6 +264,7 @@ export default function CollaborationRoom({
     });
 
     return () => {
+      clearIdleWarningState();
       if (syncFallbackTimeoutRef.current !== null) {
         clearTimeout(syncFallbackTimeoutRef.current);
         syncFallbackTimeoutRef.current = null;
@@ -363,31 +384,36 @@ export default function CollaborationRoom({
     const current = ytext.toString();
     if (current === nextValue) return;
 
+    clearIdleWarningState();
+
     ydoc.transact(() => {
       ytext.delete(0, current.length);
       ytext.insert(0, nextValue);
     }, "local");
   }
 
+  function clearIdleWarningState() {
+  setIdleWarning("");
+  setIdleCountdown(null);
+
+  if (idleCountdownIntervalRef.current !== null) {
+    clearInterval(idleCountdownIntervalRef.current);
+    idleCountdownIntervalRef.current = null;
+  }
+  }
+
   function handleEndSession() {
     if (sessionEndedMessage) return;
+    setShowEndSessionModal(true);
+  }
 
-    const startedAt = new Date(session.start_timestamp).getTime();
-    const elapsedMs = Date.now() - startedAt;
-    const isEarlyTerminationRisk = elapsedMs < 2 * 60 * 1000;
-
-    const confirmed = window.confirm(
-      isEarlyTerminationRisk
-        ? "Are you sure you want to end this session? Ending within 2 minutes will count as an early termination strike."
-        : "Are you sure you want to end this session?",
-    );
-
-    if (!confirmed) return;
-
+  function confirmEndSession() {
     socketRef.current?.emit("end-session", {
       sessionId: session.session_id,
       userId,
     });
+
+    setShowEndSessionModal(false);
   }
 
   async function handleAIRequest(type: AIExplanationType) {
@@ -436,194 +462,251 @@ export default function CollaborationRoom({
     setAiChatMessages((prev) => [...prev, message]);
   }
 
-  return (
-    <div
-      className={`grid gap-3 h-[calc(100dvh-4rem)] min-h-0 ${
-        isChatOpen ? "grid-cols-3" : "grid-cols-2"
-      }`}
-    >
-      <div className="bg-white rounded-xl shadow-sm p-6 overflow-auto">
-        <h2 className="text-lg font-semibold mb-3">{question.title}</h2>
+  const startedAt = new Date(session.start_timestamp).getTime();
+  const elapsedMs = Date.now() - startedAt;
+  const isEarlyTerminationRisk = elapsedMs < 2 * 60 * 1000;
 
-        <div className="space-y-2 text-sm text-slate-600 mb-4">
-          <p>
-            Topic: <strong>{session.topic}</strong>
-          </p>
-          <p>
-            Difficulty: <strong>{session.difficulty}</strong>
-          </p>
-          <p>
-            Language: <strong>{session.language}</strong>
-          </p>
-          <p>
-            Session ID: <strong>{session.session_id}</strong>
-          </p>
+  return (
+    <div className="h-[calc(100dvh-4rem)] overflow-x-auto overflow-y-hidden">
+      <div
+        className={`grid h-full w-full gap-3 ${
+          isChatOpen
+            ? "min-w-[900px] grid-cols-3"
+            : "min-w-[640px] grid-cols-2"
+        }`}
+      >
+        <div className="min-w-0 bg-white rounded-xl shadow-sm p-6 overflow-auto">
+          <h2 className="text-lg font-semibold mb-3">{question.title}</h2>
+
+          <div className="space-y-2 text-sm text-slate-600 mb-4">
+            <p>
+              Topic: <strong>{session.topic}</strong>
+            </p>
+            <p>
+              Difficulty: <strong>{session.difficulty}</strong>
+            </p>
+            <p>
+              Language: <strong>{session.language}</strong>
+            </p>
+            <p>
+              Session ID: <strong>{session.session_id}</strong>
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {question.blocks && question.blocks.length > 0 ? (
+              question.blocks.map((block, index) => {
+                if (block.block_type === "text") {
+                  return (
+                    <pre
+                      key={index}
+                      className="whitespace-pre-wrap text-sm text-slate-700 font-sans"
+                    >
+                      {block.content}
+                    </pre>
+                  );
+                }
+
+                if (block.block_type === "image") {
+                  return (
+                    <div key={index} className="space-y-2">
+                      <img
+                        src={block.content}
+                        alt={`Question image ${index + 1}`}
+                        className="max-w-full rounded-lg border"
+                      />
+                    </div>
+                  );
+                }
+
+                return null;
+              })
+            ) : (
+              <p className="text-sm text-slate-500">
+                No question description available.
+              </p>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-4">
-          {question.blocks && question.blocks.length > 0 ? (
-            question.blocks.map((block, index) => {
-              if (block.block_type === "text") {
-                return (
-                  <pre
-                    key={index}
-                    className="whitespace-pre-wrap text-sm text-slate-700 font-sans"
-                  >
-                    {block.content}
-                  </pre>
-                );
-              }
+        <div className="min-w-0 bg-white rounded-xl shadow-sm p-6 flex flex-col min-h-0">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Code Editor</h2>
+            <button
+              onClick={() => setIsChatOpen((prev) => !prev)}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
+                isChatOpen
+                  ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                  : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"
+              }`}
+              aria-label={isChatOpen ? "Hide chat panel" : "Open chat panel"}
+              title={isChatOpen ? "Hide chat" : "Need help?"}
+            >
+              <ChatBubbleLeftRightIcon className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
 
-              if (block.block_type === "image") {
-                return (
-                  <div key={index} className="space-y-2">
-                    <img
-                      src={block.content}
-                      alt={`Question image ${index + 1}`}
-                      className="max-w-full rounded-lg border"
-                    />
-                  </div>
-                );
-              }
+          {roomMessage && (
+            <p className="mb-2 text-sm text-slate-600">{roomMessage}</p>
+          )}
 
-              return null;
-            })
-          ) : (
-            <p className="text-sm text-slate-500">
-              No question description available.
+          {idleWarning && (
+            <div className="mb-2 rounded border border-yellow-200 bg-yellow-50 p-3">
+              <p className="text-sm font-medium text-yellow-800">
+                Idle warning
+              </p>
+              <p className="text-sm text-yellow-700 mt-1">
+                Make a change in the code editor within{" "}
+                <strong>{idleCountdown ?? 30}s</strong> or the session will end.
+              </p>
+            </div>
+          )}
+
+          {sessionEndedMessage && (
+            <div className="mb-3 rounded border border-red-200 bg-red-50 p-3">
+              <p className="text-sm text-red-700">{sessionEndedMessage}</p>
+            </div>
+          )}
+
+          {earlyTerminationWarning && (
+            <p className="mb-2 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded p-2">
+              {earlyTerminationWarning}
             </p>
           )}
+
+          {canRejoinQueue && (
+            <p className="mb-2 text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded p-2">
+              You can rejoin the matching queue immediately.
+            </p>
+          )}
+
+          <div className="flex-1 border rounded-lg overflow-hidden">
+            <Editor
+              height="100%"
+              language={getEditorLanguage(session.language)}
+              value={code}
+              onChange={(value) => handleCodeChange(value ?? "")}
+              theme="vs-light"
+              options={{
+                readOnly: !!sessionEndedMessage,
+                minimap: { enabled: false },
+                fontSize: 14,
+                automaticLayout: true,
+                scrollBeyondLastLine: false,
+                wordWrap: "on",
+                lineNumbers: "on",
+                tabSize: 2,
+                insertSpaces: true,
+                bracketPairColorization: { enabled: true },
+                padding: { top: 12 },
+              }}
+            />
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            {!sessionEndedMessage ? (
+              <button
+                onClick={handleEndSession}
+                className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600"
+              >
+                End Session
+              </button>
+            ) : canRejoinQueue ? (
+              <>
+                <button
+                  onClick={() => onLeave({ rejoinQueue: true })}
+                  className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700"
+                >
+                  Rejoin Queue
+                </button>
+                <button
+                  onClick={() => onLeave()}
+                  className="border border-slate-300 text-slate-700 py-2 px-4 rounded-lg hover:bg-slate-50"
+                >
+                  Back to Matching
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => onLeave()}
+                className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700"
+              >
+                Back to Matching
+              </button>
+            )}
+          </div>
+
+          <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${
+                partnerConnected
+                  ? "bg-green-500"
+                  : partnerName
+                    ? "bg-red-500"
+                    : "bg-slate-300"
+              }`}
+            />
+            <span>
+              Partner:{" "}
+              <strong>{partnerName || "Waiting for partner..."}</strong>
+            </span>
+          </div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col min-h-0">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Code Editor</h2>
-          <button
-            onClick={() => setIsChatOpen((prev) => !prev)}
-            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-              isChatOpen
-                ? "bg-indigo-100 border-indigo-300 text-indigo-700"
-                : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"
-            }`}
-            aria-label="Toggle chat panel"
-          >
-            <ChatBubbleLeftRightIcon className="h-4 w-4" aria-hidden="true" />
-            {isChatOpen ? "Hide chat" : "Need help?"}
-          </button>
-        </div>
-
-        {roomMessage && (
-          <p className="mb-2 text-sm text-slate-600">{roomMessage}</p>
+        {isChatOpen && (
+          <Chat
+            sessionId={session.session_id}
+            userId={userId}
+            username={currentUsername}
+            partnerChatDisabled={!!sessionEndedMessage}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            remainingPrompts={remainingPrompts}
+            promptCountLoading={promptCountLoading}
+            aiChatMessages={aiChatMessages}
+            aiChatHistoryLoading={aiChatHistoryLoading}
+            appendAiChatMessage={appendAiChatMessage}
+            onSendAiChatPrompt={handleSendAiChatPrompt}
+            onAiChatMessageSent={() => {
+              void refreshRemainingPrompts(false);
+            }}
+            remainingRequests={remainingRequests}
+            loading={loading}
+            handleAIRequest={handleAIRequest}
+            aiResponse={aiResponse}
+          />
         )}
+        {showEndSessionModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-slate-900">
+                End session?
+              </h3>
 
-        {idleWarning && (
-          <p className="mb-2 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
-            {idleWarning}
-          </p>
-        )}
+              <p className="mt-2 text-sm text-slate-600">
+                {isEarlyTerminationRisk
+                  ? "Ending within 2 minutes will count as an early termination strike."
+                  : "Are you sure you want to end this session?"}
+              </p>
 
-        {sessionEndedMessage && (
-          <div className="mb-3 rounded border border-red-200 bg-red-50 p-3">
-            <p className="text-sm text-red-700">{sessionEndedMessage}</p>
+              <div className="mt-5 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowEndSessionModal(false)}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmEndSession}
+                  className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600"
+                >
+                  End Session
+                </button>
+              </div>
+            </div>
           </div>
         )}
-
-        {earlyTerminationWarning && (
-          <p className="mb-2 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded p-2">
-            {earlyTerminationWarning}
-          </p>
-        )}
-
-        {canRejoinQueue && (
-          <p className="mb-2 text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded p-2">
-            You can rejoin the matching queue immediately.
-          </p>
-        )}
-
-        <div className="flex-1 border rounded-lg overflow-hidden">
-          <Editor
-            height="100%"
-            language={getEditorLanguage(session.language)}
-            value={code}
-            onChange={(value) => handleCodeChange(value ?? "")}
-            theme="vs-light"
-            options={{
-              readOnly: !!sessionEndedMessage,
-              minimap: { enabled: false },
-              fontSize: 14,
-              automaticLayout: true,
-              scrollBeyondLastLine: false,
-              wordWrap: "on",
-              lineNumbers: "on",
-              tabSize: 2,
-              insertSpaces: true,
-              bracketPairColorization: { enabled: true },
-              padding: { top: 12 },
-            }}
-          />
-        </div>
-
-        <div className="mt-4 flex gap-3">
-          {!sessionEndedMessage ? (
-            <button
-              onClick={handleEndSession}
-              className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600"
-            >
-              End Session
-            </button>
-          ) : (
-            <button
-              onClick={onLeave}
-              className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700"
-            >
-              Back to Matching
-            </button>
-          )}
-        </div>
-
-        <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-          <span
-            className={`inline-block h-2.5 w-2.5 rounded-full ${
-              partnerConnected
-                ? "bg-green-500"
-                : partnerName
-                  ? "bg-red-500"
-                  : "bg-slate-300"
-            }`}
-          />
-          <span>
-            Partner:{" "}
-            <strong>
-              {partnerName || "Waiting for partner..."}
-            </strong>
-          </span>
-        </div>
       </div>
-
-      {isChatOpen && (
-        <Chat
-          sessionId={session.session_id}
-          userId={userId}
-          username={currentUsername}
-          partnerChatDisabled={!!sessionEndedMessage}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          remainingPrompts={remainingPrompts}
-          promptCountLoading={promptCountLoading}
-          aiChatMessages={aiChatMessages}
-          aiChatHistoryLoading={aiChatHistoryLoading}
-          appendAiChatMessage={appendAiChatMessage}
-          onSendAiChatPrompt={handleSendAiChatPrompt}
-          onAiChatMessageSent={() => {
-            void refreshRemainingPrompts(false);
-          }}
-          remainingRequests={remainingRequests}
-          loading={loading}
-          handleAIRequest={handleAIRequest}
-          aiResponse={aiResponse}
-        />
-      )}
     </div>
   );
 }
