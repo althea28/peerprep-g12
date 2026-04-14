@@ -21,7 +21,6 @@ type CollabState =
   | "confirming"
   | "timed_out"
   | "active"
-  | "error"
 
 type MatchResponseStatus =
   | "queued"
@@ -143,6 +142,9 @@ export default function CollabPage() {
   const [proposedMatch, setProposedMatch] = useState<CandidateMatch | null>(
     null,
   );
+  const [showMatchInterruptedModal, setShowMatchInterruptedModal] =
+    useState(false);
+  const [showGenericErrorModal, setShowGenericErrorModal] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [question, setQuestion] = useState<Question | null>(null);
   const [isEnteringRoom, setIsEnteringRoom] = useState(false);
@@ -172,7 +174,6 @@ export default function CollabPage() {
     if (!token) {
       if (mountedRef && !mountedRef.current) return;
       setIsConnected(false);
-      setState("error");
       setMessage("Missing authentication token. Please log in again.");
       return;
     }
@@ -244,7 +245,8 @@ export default function CollabPage() {
       if (mountedRef && !mountedRef.current) return;
       console.error("Socket connection error:", error);
       setIsConnected(false);
-      setState("error");
+      setState("idle");
+      setShowGenericErrorModal(true);
       setMessage(error.message || "Failed to connect to matching service.");
     });
 
@@ -279,7 +281,8 @@ export default function CollabPage() {
           if (payload.sessionId) {
             void loadSessionRoom(payload.sessionId);
           } else {
-            setState("error");
+            setState("idle");
+            setShowGenericErrorModal(true);
             setMessage("Match found but no session ID was returned.");
           }
           break;
@@ -290,7 +293,8 @@ export default function CollabPage() {
           if (payload.sessionId) {
             void loadSessionRoom(payload.sessionId);
           } else {
-            setState("error");
+            setState("idle");
+            setShowGenericErrorModal(true);
             setMessage("Match succeeded but no session ID was returned.");
           }
           break;
@@ -317,19 +321,29 @@ export default function CollabPage() {
           break;
 
         case "unsuccessful_match":
+          const normalisedMessage = (payload.message || "").toLowerCase();
           setProposedMatch(null);
           setSessionId("");
+          setConfirmationChoice(null);
+          setCountdown(null);
 
-          if (
-            (payload.message || "").toLowerCase().includes("temporarily banned")
-          ) {
+          if (normalisedMessage.includes("temporarily banned")) {
             setShowBanModal(true);
             setState("idle");
             setMessage(
               payload.message || "You are temporarily banned from matching.",
             );
+          } else if (normalisedMessage.includes("other user disconnected")) {
+            setShowMatchInterruptedModal(true);
+            setState("idle");
+            setMessage(
+              payload.message ||
+                "Match cancelled because the other user disconnected.",
+            );
           } else {
-            setState("error");
+            setState("idle");
+            setShowGenericErrorModal(true);
+            setMessage(payload.message || "Something went wrong.");
           }
           break;
 
@@ -393,7 +407,6 @@ export default function CollabPage() {
       } catch (error) {
         console.error("Failed to load user info:", error);
         if (!mountedRef.current) return;
-        setState("error");
         setMessage("Failed to load user info.");
       } finally {
         if (mountedRef.current) {
@@ -443,7 +456,7 @@ export default function CollabPage() {
 
   function handleFindMatch() {
     if (!socketRef.current || !isConnected) {
-      setState("error");
+      setShowGenericErrorModal(true);
       setMessage("Not connected to matching service.");
       return;
     }
@@ -550,7 +563,8 @@ export default function CollabPage() {
       console.log("Loading session room for:", targetSessionId);
     } catch (error) {
       console.error("Failed to load collaboration room:", error);
-      setState("error");
+      setState("idle");
+      setShowGenericErrorModal(true);
       setMessage(
         error instanceof Error
           ? error.message
@@ -574,7 +588,12 @@ export default function CollabPage() {
       <div className="max-w-6xl relative">
         <div
           className={`transition duration-200 ${
-            showWaitingModal || showConfirmingModal || showTimeoutModal || showBanModal
+            showWaitingModal ||
+            showConfirmingModal ||
+            showTimeoutModal ||
+            showBanModal ||
+            showMatchInterruptedModal ||
+            showGenericErrorModal
               ? "blur-sm pointer-events-none select-none"
               : ""
           }`}
@@ -739,7 +758,9 @@ export default function CollabPage() {
         {(showWaitingModal ||
           showConfirmingModal ||
           showTimeoutModal ||
-          showBanModal) && (
+          showBanModal ||
+          showMatchInterruptedModal ||
+          showGenericErrorModal) && (
           <div className="absolute inset-0 z-10 flex items-center justify-center">
             <div className="absolute inset-0 rounded-2xl bg-white/30" />
 
@@ -844,20 +865,22 @@ export default function CollabPage() {
                     <div className="flex gap-3">
                       <button
                         onClick={() => handleConfirmMatch(true)}
-                        className={`w-full py-2 rounded-lg transition ${confirmationChoice === "accepted"
+                        className={`w-full py-2 rounded-lg transition ${
+                          confirmationChoice === "accepted"
                             ? "bg-green-200 text-green-800 ring-2 ring-green-500"
                             : "bg-indigo-600 text-white hover:bg-indigo-700"
-                          }`}
+                        }`}
                       >
                         Accept Match
                       </button>
 
                       <button
                         onClick={() => handleConfirmMatch(false)}
-                        className={`w-full py-2 rounded-lg border transition ${confirmationChoice === "declined"
+                        className={`w-full py-2 rounded-lg border transition ${
+                          confirmationChoice === "declined"
                             ? "bg-red-100 text-red-700 border-red-300 ring-2 ring-red-400"
                             : "hover:bg-slate-50"
-                          }`}
+                        }`}
                       >
                         Decline Match
                       </button>
@@ -914,6 +937,53 @@ export default function CollabPage() {
                   </button>
                 </>
               )}
+
+              {showMatchInterruptedModal && (
+                <>
+                  <h2 className="text-xl font-semibold text-slate-800">
+                    Partner Unavailable
+                  </h2>
+
+                  <p className="text-slate-600">
+                    {message ||
+                      "Match cancelled because the other user disconnected."}
+                  </p>
+
+                  <button
+                    onClick={() => {
+                      setShowMatchInterruptedModal(false);
+                      setMessage("");
+                      setState("idle");
+                    }}
+                    className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
+                  >
+                    Back to Matching
+                  </button>
+                </>
+              )}
+
+              {showGenericErrorModal && (
+                <>
+                  <h2 className="text-xl font-semibold text-slate-800">
+                    Something went wrong
+                  </h2>
+
+                  <p className="text-slate-600">
+                    {message || "An unexpected error occurred."}
+                  </p>
+
+                  <button
+                    onClick={() => {
+                      setShowGenericErrorModal(false);
+                      setMessage("");
+                      setState("idle");
+                    }}
+                    className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
+                  >
+                    Back to Matching
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -945,28 +1015,6 @@ export default function CollabPage() {
         username={username}
         onLeave={handleLeaveSession}
       />
-    );
-  }
-
-  if (state === "error") {
-    return (
-      <div className="max-w-xl">
-        <h1 className="text-2xl font-bold mb-6">Matching Error</h1>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm space-y-4 border border-red-200">
-          <p className="text-slate-700">{message || "Something went wrong."}</p>
-
-          <button
-            onClick={() => {
-              resetMatchState("idle");
-              setMessage("");
-            }}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
-          >
-            Back to Matching
-          </button>
-        </div>
-      </div>
     );
   }
 
