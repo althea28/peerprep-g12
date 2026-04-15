@@ -247,6 +247,140 @@ Action Taken: Modified
 
 Author Notes: Logic was largely retained, with changes made to messages, and debugging errors. Tested for correctness using Postman, and by testing on localhost. 
 
+
+
+---
+
+### Matching Service
+
+#### Disclosure 1
+
+Date/Time: 16 March 2026  
+
+Tool: Gemini 3.1 Pro & GitHub Copilot (GPT-5.3-Codex)
+
+Prompt/Command: Optimised prompt with Gemini before passing it into GitHub Copilot. Provided AI assistant with a long paragraph specifying the complete workflow of matching service. Requested a "bare bones skeleton code" for matching service to scaffold file structure. Specified all socket.io event types and action flows and requested GitHub Copilot to define them as enums in a separate file. 
+
+Output Summary: Added enums and typed payload contracts for socket actions and statuses in `matchingEvents.ts`. Created boilerplate files. Added enqueue, find candidate, and remove from queue placeholder methods (not implemented) for `redisService.ts`. 
+
+Action Taken: Modified and added to the defined types in `matchingEvents.ts`
+
+#
+
+#### Disclosure 2
+
+Date/Time: 26 March 2026  
+
+Tool: GitHub Copilot (GPT-5.3-Codex)
+
+Prompt/Command: Requested generation of a timestamped logger with a file name indicator. 
+
+Output Summary: Wrote `logger.ts`  used in Matching Service and AI Chat Service. 
+
+Action Taken: Verified
+
+#
+
+#### Disclosure 3
+
+Date/Time: 30 March 2026  
+
+Tool: GitHub Copilot (GPT-5.3-Codex)
+
+Prompt/Command: Requested generation of a simplistic frontend for matching service that defined socket.io connections. 
+
+Output Summary: Wrote `matching-service/frontend` (removed)
+
+Action Taken: Debugged a few iterations and used for testing the matching service. \
+
+Author's note: Removed from GitHub repo as it was just meant for testing, but used to assist with socket listeners and emitters on real frontend.
+
+#
+
+#### Disclosure 4
+
+Date/Time: Throughout the project  
+
+Tool: Gemini 3.1 Pro
+
+Prompt/Command: Used to discuss and work through matching algorithm logic. 
+
+Output Summary: Assisted in strengthening matching algorithm logic over a few iterations. Helped consider edge cases. Helped in understanding and learning Redis.
+
+Author's note: Did not use code from Gemini 3.1 Pro.
+
+
+
+---
+
+### AI Chat Service
+
+#### Disclosure 1
+
+Date/Time: 11 April 2026  
+
+Tool: GitHub Copilot (GPT-5.3-Codex)
+
+Prompt/Command: Requested boilerplate set-up for AI Chat Service. Provided detailed file structure.  
+
+Output Summary: Set up `tsconfig.json`,  `index.ts`, `aiChatRoutes.ts`, `aiChatController.ts` files.
+
+Action Taken: Modified or replaced all files. 
+
+#### Disclosure 2
+
+Date/Time: 11 April 2026  
+
+Tool: GitHub Copilot (GPT-5.3-Codex)
+
+Prompt/Command: Specified the type, params, and response of REST API endpoints and requested AI assistant to format endpoint paths. 
+
+Output Summary: Formatted endpoint paths and linked to controller function with error checking scaffold, but did not implement controller function.
+
+Action Taken: Modified as necessary.
+
+#### Disclosure 3
+
+Date/Time: 12 April 2026  
+
+Tool: Gemini 3.1 Pro
+
+Prompt/Command: Write me a system prompt to attach to the front of the user prompt to send to the AI assistent. I want to inform the ai assistant to follow the following restrictions: Avoid automatic full-solution generation
+
+Provide solution hints or problem clarifications rather than solutions
+
+Minimize code generation, instead help user walk through the logic
+
+Where code generation is appropriate (e.g. syntax help), try to generate example code instead of directly editing user code. Leave placeholders in the system prompt for where i can insert the programming language, question title and content, question topic, the user's existing code, the chat history between the user and ai agent if any, and the current user prompt.
+
+Output Summary: Generated the system prompt requested which I defined as `SYSTEM_PROMPT_RULES` in `promptService.ts`
+
+Action Taken: Modified as necessary.
+
+#### Disclosure 4
+
+Date/Time: 12 April 2026  
+
+Tool: GitHub Copilot (GPT-5.3-Codex)
+
+Prompt/Command: Provided the format of GET question from question id and requested the generation of a function which parses through it and returns question title and the cohesive question content. 
+
+Output Summary: `parseQuestion` function in `questionService.ts`
+
+Action Taken: Modified as necessary.
+
+#### Disclosure 5
+
+Date/Time: 13 April 2026  
+
+Tool: GitHub Copilot (GPT-5.3-Codex)
+
+Prompt/Command: Described UI elements and their desired aesthetic for the AI Chat component.
+
+Output Summary: Generated some of the Tailwind CSS utility classes for AI chat tab in `Chat.tsx`
+
+Action Taken: Modified as necessary.
+
 ---
 ### Frontend
 
