@@ -125,3 +125,16 @@ export const endSession = async (
     res.status(500).json({ error: err.message });
   }
 };
+
+export const getPastSessions = async (
+  req: AuthenticatedRequest, 
+  res: Response
+): Promise<void> => {
+  try {
+    const userId = req.user?.id!;
+    const sessions = await sessionService.getPastSessionByUserId(userId);
+    res.status(200).json(sessions);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};

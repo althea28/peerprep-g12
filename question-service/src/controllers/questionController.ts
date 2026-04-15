@@ -159,6 +159,7 @@ export async function getQuestionByNumber(req: Request, res: Response) {
 /**
  * Retrieves a single question by its UUID.
  * Returns the exact stored version, including blocks and topics.
+ * Is able to access superseded questions for question history. 
  *
  * @route GET /questions/id/:questionId
  * @access Authenticated users

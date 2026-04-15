@@ -5,7 +5,7 @@ import { getChannel, EXCHANGE_NAME, SESSION_ENDED_ROUTING_KEY } from '../config/
 
 const fetchQuestionFromService = async (topic: string, difficulty: string): Promise<string> => {
   const questionServiceUrl = process.env.QUESTION_SERVICE_URL || 'http://localhost:3001';
-  
+
   const response = await fetch(`${questionServiceUrl}/internal/questions/fetch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -17,7 +17,7 @@ const fetchQuestionFromService = async (topic: string, difficulty: string): Prom
   }
 
   const data = await response.json() as { question_id: string };
-  
+
   if (!data.question_id) {
     throw new Error('Question Service returned no question ID');
   }
@@ -32,7 +32,7 @@ export const createSession = async (dto: CreateSessionDTO): Promise<Session> => 
 
   if (user1Active) throw new Error(`User ${dto.user1_id} already has an active session`);
   if (user2Active) throw new Error(`User ${dto.user2_id} already has an active session`);
-  
+
   const question_id = await fetchQuestionFromService(dto.topic, dto.difficulty);
 
   const newSession = {
@@ -121,4 +121,18 @@ export const endSession = async (sessionId: string): Promise<Session> => {
   }
 
   return session;
+};
+
+// get past sessions (for question attempt history)
+export const getPastSessionByUserId = async (userId: string): Promise<Session[]> => {
+  const { data, error } = await supabase
+    .schema('collaborationservice')
+    .from('collaboration_rooms')
+    .select('*')
+    .or(`user1_id.eq.${userId}, user2_id.eq.${userId}`)
+    .eq('status', 'inactive')
+    .order('end_timestamp', { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch past sessions: ${error.message}`);
+  return data as Session[];
 };
