@@ -20,6 +20,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github.css";
+import ImageTextarea from "../components/ImageTextarea";
 
 type AdminUser = {
   id: string;
@@ -53,8 +54,8 @@ function CustomDropdown({
       <div className="relative">
         <Listbox.Button
           className={`relative w-full rounded-xl border bg-white px-3 py-2.5 pr-10 text-left shadow-sm transition ${disabled
-              ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-              : "border-slate-300 text-slate-800 hover:border-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+            : "border-slate-300 text-slate-800 hover:border-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
             }`}
         >
           <span className={selectedOption ? "" : "text-slate-400"}>
@@ -637,8 +638,8 @@ export default function AdminPage() {
           type="button"
           onClick={() => setActiveTab("questions")}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === "questions"
-              ? "bg-white text-indigo-600 shadow-sm"
-              : "text-slate-600 hover:text-slate-800"
+            ? "bg-white text-indigo-600 shadow-sm"
+            : "text-slate-600 hover:text-slate-800"
             }`}
         >
           Question Bank
@@ -647,8 +648,8 @@ export default function AdminPage() {
           type="button"
           onClick={() => setActiveTab("users")}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === "users"
-              ? "bg-white text-indigo-600 shadow-sm"
-              : "text-slate-600 hover:text-slate-800"
+            ? "bg-white text-indigo-600 shadow-sm"
+            : "text-slate-600 hover:text-slate-800"
             }`}
         >
           User Management
@@ -678,7 +679,7 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <textarea
+                {/* <textarea
                   value={description}
                   onChange={(e) => {
                     setDescription(e.target.value);
@@ -691,7 +692,18 @@ export default function AdminPage() {
                 />
                 <p className="mt-1 text-xs text-slate-500">
                   To insert an image, use: [image:https://example.com/image.png]
-                </p>
+                </p> */}
+                <ImageTextarea
+                  value={description}
+                  onChange={(val) => {
+                    setDescription(val);
+                    setCreateError("");
+                    setCreateMessage("");
+                  }}
+                  rows={6}
+                  placeholder="Enter question description"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                />
               </div>
 
               <div>
@@ -784,8 +796,8 @@ export default function AdminPage() {
                             setCreateMessage("");
                           }}
                           className={`rounded-full px-3 py-1 text-sm transition ${selected
-                              ? "bg-indigo-600 text-white"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                            ? "bg-indigo-600 text-white"
+                            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                             }`}
                         >
                           {topic.name}
@@ -1092,7 +1104,7 @@ export default function AdminPage() {
                             </div>
 
                             <div>
-                              <textarea
+                              {/* <textarea
                                 rows={6}
                                 value={editDescription}
                                 onChange={(e) => {
@@ -1105,7 +1117,17 @@ export default function AdminPage() {
                               <p className="mt-1 text-xs text-slate-500">
                                 To insert an image, use:
                                 [image:https://example.com/image.png]
-                              </p>
+                              </p> */}
+                              <ImageTextarea
+                                value={editDescription}
+                                onChange={(val) => {
+                                  setEditDescription(val);
+                                  setEditError("");
+                                  setEditMessage("");
+                                }}
+                                rows={6}
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                              />
                             </div>
 
                             <div>
@@ -1145,8 +1167,8 @@ export default function AdminPage() {
                                         setEditMessage("");
                                       }}
                                       className={`rounded-full px-3 py-1 text-sm transition ${selected
-                                          ? "bg-indigo-600 text-white"
-                                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                        ? "bg-indigo-600 text-white"
+                                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                                         }`}
                                     >
                                       {topic.name}
@@ -1285,8 +1307,8 @@ export default function AdminPage() {
                       <div className="flex items-center gap-3">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-medium ${user.isAdmin
-                              ? "bg-green-100 text-green-700"
-                              : "bg-slate-200 text-slate-700"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-slate-200 text-slate-700"
                             }`}
                         >
                           {user.isAdmin ? "Admin" : "User"}
@@ -1339,8 +1361,8 @@ export default function AdminPage() {
                 onClick={handleConfirmModalAction}
                 disabled={confirmingAction}
                 className={`w-full rounded-xl px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60 ${confirmModal.confirmVariant === "red"
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-indigo-600 hover:bg-indigo-700"
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-indigo-600 hover:bg-indigo-700"
                   }`}
               >
                 {confirmingAction ? "Processing..." : confirmModal.confirmText}

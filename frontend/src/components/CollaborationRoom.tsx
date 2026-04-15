@@ -297,7 +297,9 @@ export default function CollaborationRoom({
   useEffect(() => {
     async function fetchRemaining() {
       try {
-        const data = await getRemainingRequests(session.session_id, userId);
+        const data = await getRemainingRequests(
+          session.session_id,
+        );
         setRemainingRequests(data.remainingRequests);
       } catch (err) {
         console.error("Failed to fetch remaining requests", err);
@@ -441,7 +443,6 @@ export default function CollaborationRoom({
         fullQuestion,
         code,
         session.session_id,
-        userId,
       );
 
       setAIResponse(data.response);
