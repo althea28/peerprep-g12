@@ -48,7 +48,21 @@ PeerPrep is a platform designed to facilitate collaborative coding interview pre
 - Docker and Docker Compose installed on your machine.
 
 ## Getting Started
-- 
+
+### 1. Clone the repository
+```bash
+git clone <your-repo-url>
+cd <your-repo-folder>
+```
+
+### 2. Start the application
+```bash
+docker compose up --build
+```
+
+### 3. Open the frontend
+
+Visit ```http://localhost:5173```
 
 ---
 
