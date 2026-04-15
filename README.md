@@ -2,9 +2,53 @@
 # CS3219 Project (PeerPrep) - AY2526S2
 ## Group: G12
 
-### Note: 
-- You are required to develop individual microservices within separate folders within this repository.
-- The teaching team should be given access to the repositories, as we may require viewing the history of the repository in case of any disputes or disagreements. 
+PeerPrep is a platform designed to facilitate collaborative coding interview preparation. It connects students to solve coding questions together in real-time. Users can match with peers based on specific topics and difficulty levels, and work collaboratively in a shared code editor.
+
+## Tech Stack
+
+### Frontend
+- **React 19**
+- **TypeScript**
+- **Vite**
+- **MUI 7**
+- **Zustand**
+- **Monaco Editor**
+- **Socket.IO**
+- **Y.js**
+
+### Backend
+- **Node.js 20**
+- **Express 5 (JavaScript)**
+
+### Database
+- **PostgreSQL 16 (x3)**
+- **Redis 7**
+
+### Infrastructure
+- **Docker Compose**
+- **pnpm**
+
+## Architecture
+
+| Service                     | Port      | Description                                                       |
+|-----------------------------|-----------|-------------------------------------------------------------------|
+| **Frontend**                 | 5173      | React SPA                                                         |
+| **API Gateway**              | 3000      | JWT authentication, routing, role enforcement                     |
+| **User Service**             | 3001      | Auth, profiles, admin management, question history                |
+| **Question Bank Service**   | 3002      | CRUD operations for questions and topics                          |
+| **Matching Service**        | 3003      | Peer matching via Redis sorted sets                               |
+| **Collaboration Service**   | 3004      | Real-time code editor (Socket.IO + Y.js CRDT)                     |
+| **Redis**                    | 6379      | In-memory key-value store for low-latency operations              |
+| **RabbitMQ**                 | 5672      | Message broker for async communication between services           |
+| **AI Explanations Service** | 4000      | Provides AI-generated explanations for coding problems            |
+| **AI Chat Service**         | 3005      | AI-powered chat service for Q&A and explanations                   |
+
+## Prerequisites
+
+- Docker and Docker Compose installed on your machine.
+
+## Getting Started
+- 
 
 ---
 
