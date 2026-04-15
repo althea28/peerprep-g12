@@ -72,22 +72,32 @@ export default function ChatPanel({ sessionId, userId, username, disabled }: Pro
   return (
     <div className="bg-white rounded-xl shadow-sm p-4 flex flex-col h-full">
       <div className="flex-1 overflow-y-auto space-y-2 mb-3 text-sm">
-        {!connected && (
-          <p className="text-xs text-red-400">Connecting...</p>
-        )}
-        {messages.length === 0 && (
-          <p className="text-slate-400 text-xs">No messages yet.</p>
-        )}
+        {!connected ? (
+          <div className="flex h-full min-h-[120px] items-center justify-center">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex h-full min-h-[120px] items-center justify-center">
+            <p className="text-slate-400 text-xs">No messages yet.</p>
+          </div>
+        ) : null}
+
         {messages.map((msg, i) => {
           const isMe = msg.sender_id === userId;
           return (
-            <div key={i} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+            <div
+              key={i}
+              className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+            >
               <span className="text-xs text-slate-400 mb-0.5">
-                {isMe ? username : "Partner"} · {new Date(msg.timestamp).toLocaleTimeString()}
+                {isMe ? username : "Partner"} ·{" "}
+                {new Date(msg.timestamp).toLocaleTimeString()}
               </span>
               <span
                 className={`px-3 py-1.5 rounded-lg max-w-[80%] break-words ${
-                  isMe ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-800"
+                  isMe
+                    ? "bg-indigo-600 text-white"
+                    : "bg-slate-100 text-slate-800"
                 }`}
               >
                 {msg.content}
@@ -98,7 +108,7 @@ export default function ChatPanel({ sessionId, userId, username, disabled }: Pro
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <input
           type="text"
           value={input}
@@ -111,7 +121,7 @@ export default function ChatPanel({ sessionId, userId, username, disabled }: Pro
         <button
           onClick={handleSend}
           disabled={!connected || !input.trim() || disabled}
-          className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:bg-gray-300"
+          className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 disabled:bg-gray-300 sm:w-auto"
         >
           Send
         </button>

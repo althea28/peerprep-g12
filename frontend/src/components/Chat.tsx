@@ -131,10 +131,10 @@ export default function Chat({
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col min-h-0">
-      <div className="flex border-b mb-3">
+      <div className="mb-3 flex overflow-x-auto border-b scrollbar-thin">
         <button
           onClick={() => setActiveTab("Partner Chat")}
-          className={`px-3 py-2 text-sm ${
+          className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm ${
             activeTab === "Partner Chat"
               ? "border-b-2 border-indigo-500 font-medium"
               : "text-gray-500"
@@ -145,7 +145,7 @@ export default function Chat({
 
         <button
           onClick={() => setActiveTab("AI Chat")}
-          className={`px-3 py-2 text-sm ${
+          className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm ${
             activeTab === "AI Chat"
               ? "border-b-2 border-indigo-500 font-medium"
               : "text-gray-500"
@@ -156,7 +156,7 @@ export default function Chat({
 
         <button
           onClick={() => setActiveTab("AI Explanations")}
-          className={`px-3 py-2 text-sm ${
+          className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm ${
             activeTab === "AI Explanations"
               ? "border-b-2 border-indigo-500 font-medium"
               : "text-gray-500"
@@ -187,15 +187,20 @@ export default function Chat({
             {aiChatHistoryLoading ? (
               <p className="text-slate-500">Loading chat history...</p>
             ) : aiChatMessages.length === 0 ? (
-              <div className="flex h-full min-h-[180px] flex-col items-center justify-center gap-3 text-center text-slate-500">
-                <AcademicCapIcon className="h-10 w-10 text-black" aria-hidden="true" />
-                <p className="text-lg font-normal text-slate-700">How can I help?</p>
+              <div className="flex h-full min-h-45 flex-col items-center justify-center gap-3 text-center text-slate-500">
+                <AcademicCapIcon
+                  className="h-10 w-10 text-black"
+                  aria-hidden="true"
+                />
+                <p className="text-lg font-normal text-slate-700">
+                  How can I help?
+                </p>
               </div>
             ) : (
-              aiChatMessages.map((message, index) => (
+              aiChatMessages.map((message, index) =>
                 message.role === "user" ? (
                   <div key={index} className="flex justify-end">
-                    <div className="max-w-[85%] rounded-lg bg-indigo-100 px-3 py-2 text-indigo-900 whitespace-pre-wrap break-words">
+                    <div className="max-w-[85%] rounded-lg bg-indigo-100 px-3 py-2 text-indigo-900 whitespace-pre-wrap wrap-break-word">
                       {message.content}
                     </div>
                   </div>
@@ -208,8 +213,8 @@ export default function Chat({
                       {message.content}
                     </ReactMarkdown>
                   </div>
-                )
-              ))
+                ),
+              )
             )}
             {sendingAiChat && <p className="text-slate-500">Thinking...</p>}
             <div ref={chatBottomRef} />
@@ -237,9 +242,15 @@ export default function Chat({
               onClick={() => {
                 void sendAiChatMessage();
               }}
-              disabled={sendingAiChat || promptsLeft === 0 || aiChatInput.trim().length === 0}
+              disabled={
+                sendingAiChat ||
+                promptsLeft === 0 ||
+                aiChatInput.trim().length === 0
+              }
               className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${
-                sendingAiChat || promptsLeft === 0 || aiChatInput.trim().length === 0
+                sendingAiChat ||
+                promptsLeft === 0 ||
+                aiChatInput.trim().length === 0
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-indigo-600 text-white hover:bg-indigo-700"
               }`}
@@ -262,8 +273,10 @@ export default function Chat({
           <div className="flex flex-col gap-2 mb-4">
             <button
               onClick={() => handleAIRequest("EXPLAIN_QUESTION")}
-              disabled={loading || remainingRequests === 0 || remainingRequests === null}
-              className={`rounded px-3 py-2 text-sm ${
+              disabled={
+                loading || remainingRequests === 0 || remainingRequests === null
+              }
+              className={`rounded shrink-0 whitespace-nowrap px-3 py-2 text-sm ${
                 loading || remainingRequests === 0 || remainingRequests === null
                   ? "bg-gray-200 cursor-not-allowed"
                   : "bg-slate-100 hover:bg-slate-200"
@@ -274,8 +287,10 @@ export default function Chat({
 
             <button
               onClick={() => handleAIRequest("HINT")}
-              disabled={loading || remainingRequests === 0 || remainingRequests === null}
-              className={`rounded px-3 py-2 text-sm ${
+              disabled={
+                loading || remainingRequests === 0 || remainingRequests === null
+              }
+              className={`rounded shrink-0 whitespace-nowrap px-3 py-2 text-sm ${
                 loading || remainingRequests === 0 || remainingRequests === null
                   ? "bg-gray-200 cursor-not-allowed"
                   : "bg-slate-100 hover:bg-slate-200"
@@ -286,8 +301,10 @@ export default function Chat({
 
             <button
               onClick={() => handleAIRequest("EXPLAIN_CODE")}
-              disabled={loading || remainingRequests === 0 || remainingRequests === null}
-              className={`rounded px-3 py-2 text-sm ${
+              disabled={
+                loading || remainingRequests === 0 || remainingRequests === null
+              }
+              className={`rounded shrink-0 whitespace-nowrap px-3 py-2 text-sm ${
                 loading || remainingRequests === 0 || remainingRequests === null
                   ? "bg-gray-200 cursor-not-allowed"
                   : "bg-slate-100 hover:bg-slate-200"
@@ -298,17 +315,17 @@ export default function Chat({
           </div>
 
           <div className="flex-1 overflow-y-auto border rounded p-3 text-sm text-slate-700 whitespace-pre-wrap">
-            {loading
-              ? "Thinking..."
-              : aiResponse ? (
-                <div className="prose prose-slate max-w-none text-slate-700">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {aiResponse}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                "Ask for help to see AI explanation."
-              )}
+            {loading ? (
+              "Thinking..."
+            ) : aiResponse ? (
+              <div className="prose prose-slate max-w-none text-slate-700">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {aiResponse}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              "Ask for help to see AI explanation."
+            )}
           </div>
         </>
       )}
